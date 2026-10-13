@@ -20,11 +20,13 @@ final class ClipboardViewModel: ObservableObject {
     @Published var statusMessage: String?
     @Published var errorMessage: String?
     @Published var isPaused = false
+    @Published var isSharingViaAirDrop = false
     @Published var databaseSizeDescription: String?
     var globalShortcutDescription = "⌥V"
 
     var onSearch: (String, ClipboardKind?) -> Void = { _, _ in }
     var onCopy: (ClipboardEntry, Bool) -> Void = { _, _ in }
+    var onAirDrop: (ClipboardEntry) -> Void = { _ in }
     var onPin: (ClipboardEntry) -> Void = { _ in }
     var onDelete: (ClipboardEntry) -> Void = { _ in }
     var onBackup: () -> Void = {}
@@ -77,6 +79,11 @@ final class ClipboardViewModel: ObservableObject {
     func pinSelection() {
         guard let entry = selectedEntry else { return }
         onPin(entry)
+    }
+
+    func airDropSelection() {
+        guard let entry = selectedEntry, !isSharingViaAirDrop else { return }
+        onAirDrop(entry)
     }
 
     func deleteSelection() {

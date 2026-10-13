@@ -66,6 +66,7 @@ targets:
       - Tests/JutilitiesAppTests
       - Sources/Jutilities/PasteboardMonitor.swift
       - Sources/Jutilities/PowerManager.swift
+      - Sources/Jutilities/ClipboardAirDrop.swift
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES

@@ -53,6 +53,8 @@ Both panels use a translucent native backdrop with a dark tint to keep the contr
 
 Open **Actions** to choose an operation for the selected clipboard item. Enabled actions highlight when you hover, and the whole row is clickable.
 
+Choose **Actions → AirDrop…**, or right-click an item and choose **AirDrop…**, to open macOS's native AirDrop picker. Select the nearby receiving device yourself. Web links are shared as links; text is sent as a `.txt` file, and images use the original stored PNG or TIFF at full resolution. Sharing leaves the system clipboard untouched. If only rich text is available, its original RTF or HTML is sent.
+
 The app and menu-bar icons use the same clean J/U monogram. The compact monochrome menu-bar mark follows the macOS appearance. A small dot indicates an active keep-awake session; the tooltip also reports that state.
 
 Automatic paste needs **System Settings → Privacy & Security → Accessibility → Jutilities**. Without this optional permission, Jutilities copies the item and you can paste with ⌘V. A locally rebuilt app may need its Accessibility grant renewed.
@@ -79,7 +81,9 @@ History is local, unencrypted SQLite under `~/Library/Application Support/Jutili
 - Capture supports text, links, rich text and images, with a 60 MiB limit per capture across stored formats. Files and file promises are not captured.
 - Copies while Passwords, Keychain Access, 1Password, Bitwarden or macOS authorization dialogs are active are excluded. Jutilities also respects [sensitive clipboard markers](https://nspasteboard.org/) and password-manager source hints, including background copies. It rechecks these before saving, so a private marker added while clipboard data loads still prevents recording. These exclusions are best effort: unmarked passwords copied through a browser extension or an ordinary app cannot reliably be distinguished from ordinary text. Pause **Capture clipboard** for those copies; resuming waits for the next copy and does not record what you copied while paused. No Keychain password access is needed for this protection.
 
-The app does not collect the clipboard content that was present before capture started. Preview mode never monitors or writes the system clipboard.
+AirDrop file exports use private temporary directories and files, with generic filenames. Jutilities removes each export when sharing finishes, fails or is cancelled, and removes leftover exports older than 24 hours during startup and hourly maintenance. A literal `file://` clipboard string is shared as text; it never grants access to the referenced file. Clipboard history is shared only when you choose AirDrop and select a recipient.
+
+The app does not collect the clipboard content that was present before capture started. Preview mode never monitors or writes the system clipboard and never starts AirDrop transfers.
 
 ## Power controls
 

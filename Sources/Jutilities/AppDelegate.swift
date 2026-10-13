@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let model = ClipboardViewModel()
     private let monitor = PasteboardMonitor()
     private let hotKey = GlobalHotKey()
+    private let airDrop = ClipboardAirDrop()
     private let dataQueue = DispatchQueue(label: "sh.juli.Jutilities.storage", qos: .userInitiated)
     private var store: ClipboardStore?
     private var statusItem: NSStatusItem?
@@ -81,6 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         hotKey.unregister()
         maintenanceTimer?.invalidate()
         power.stop()
+        airDrop.stop()
         if let store, let backupURL, !isPreview {
             dataQueue.sync { try? store.backup(to: backupURL) }
         }
@@ -96,6 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.onSelection = { [weak self] entry in self?.loadPreview(entry) }
         model.onDismiss = { [weak self] in self?.panel?.orderOut(nil) }
         model.onCopy = { [weak self] entry, autoPaste in self?.copy(entry, autoPaste: autoPaste) }
+        model.onAirDrop = { [weak self] entry in self?.shareViaAirDrop(entry) }
         model.onPin = { [weak self] entry in
             self?.mutate { try $0.setPinned(id: entry.id, pinned: !entry.isPinned) }
         }
@@ -319,6 +322,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
+    private func shareViaAirDrop(_ entry: ClipboardEntry) {
+        guard !model.isSharingViaAirDrop, let store else { return }
+        if isPreview {
+            model.statusMessage = "Preview mode: AirDrop sharing is not started."
+            return
+        }
+        model.isSharingViaAirDrop = true
+        model.errorMessage = nil
+        model.statusMessage = "Opening AirDrop…"
+        // Snapshot the requested entry's original formats, independent of later selection changes.
+        dataQueue.async { [weak self] in
+            do {
+                let payload = try ClipboardAirDropPayload.prepare(kind: entry.kind,
+                    representations: store.representations(for: entry.id))
+                Task { @MainActor [weak self] in
+                    guard let self else { try? payload.removeTemporaryFiles(); return }
+                    do {
+                        try self.airDrop.share(payload, from: self.panel) { [weak self] outcome in
+                            guard let self else { return }
+                            self.model.isSharingViaAirDrop = false
+                            switch outcome {
+                            case .shared: self.model.statusMessage = "Shared via AirDrop."
+                            case .cancelled: self.model.statusMessage = nil
+                            case .failed:
+                                self.model.statusMessage = nil
+                                self.model.errorMessage = "AirDrop could not share this item. Check that the receiving device is nearby and discoverable, then try again."
+                            }
+                        }
+                    } catch {
+                        self.model.isSharingViaAirDrop = false
+                        self.model.statusMessage = nil
+                        self.model.errorMessage = "AirDrop is unavailable. Check Wi-Fi and Bluetooth, then try again."
+                    }
+                }
+            } catch {
+                Task { @MainActor [weak self] in
+                    self?.model.isSharingViaAirDrop = false
+                    self?.model.statusMessage = nil
+                    self?.model.errorMessage = "Could not prepare this item for AirDrop. Try another clipboard item."
+                }
+            }
+        }
+    }
+
     private func mutate(_ operation: @escaping (ClipboardStore) throws -> Void) {
         guard let store else { return }
         let backup = backupURL
@@ -333,7 +380,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func maintenance() {
         guard let store, let backupURL else { return }
+        let activeExport = airDrop.temporaryDirectory
         dataQueue.async { [weak self] in
+            ClipboardAirDropPayload.removeStaleExports(excluding: activeExport)
             do {
                 _ = try store.purgeExpired()
                 try store.backup(to: backupURL)

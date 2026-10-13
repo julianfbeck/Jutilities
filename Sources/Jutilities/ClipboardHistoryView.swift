@@ -175,6 +175,8 @@ struct ClipboardHistoryView: View {
                                     .contextMenu {
                                         Button("Paste") { model.onCopy(entry, true) }
                                         Button("Copy") { model.onCopy(entry, false) }
+                                        Button("AirDrop…") { model.onAirDrop(entry) }
+                                            .disabled(model.isSharingViaAirDrop)
                                         Divider()
                                         Button(entry.isPinned ? "Unpin" : "Pin") { model.onPin(entry) }
                                         Button("Delete", role: .destructive) { model.onDelete(entry) }
@@ -405,6 +407,9 @@ struct ClipboardHistoryView: View {
             }
             action("Copy", symbol: "doc.on.doc", shortcut: "⌘ ↵", enabled: model.selectedEntry != nil) {
                 model.copySelection(autoPaste: false)
+            }
+            action("AirDrop…", symbol: "airdrop", enabled: model.selectedEntry != nil && !model.isSharingViaAirDrop) {
+                model.airDropSelection()
             }
             action(model.selectedEntry?.isPinned == true ? "Unpin Item" : "Pin Item", symbol: "pin", shortcut: "⌘ P", enabled: model.selectedEntry != nil) {
                 model.pinSelection()
