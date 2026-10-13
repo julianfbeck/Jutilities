@@ -51,6 +51,8 @@ Type to search. The compact, resizable clipboard panel opens at 760 × 500 point
 
 Both panels use a translucent native backdrop with a dark tint to keep the controls readable. macOS **Reduce Transparency** switches them to a solid background.
 
+Open **Actions** to choose an operation for the selected clipboard item. Enabled actions highlight when you hover, and the whole row is clickable.
+
 The app and menu-bar icons use the same clean J/U monogram. The compact monochrome menu-bar mark follows the macOS appearance. A small dot indicates an active keep-awake session; the tooltip also reports that state.
 
 Automatic paste needs **System Settings → Privacy & Security → Accessibility → Jutilities**. Without this optional permission, Jutilities copies the item and you can paste with ⌘V. A locally rebuilt app may need its Accessibility grant renewed.

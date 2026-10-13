@@ -380,6 +380,7 @@ struct ClipboardHistoryView: View {
                         .font(.system(size: 11, weight: .medium))
                     ShortcutKey(label: "⌘ K")
                 }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .popover(isPresented: $showsActions, arrowEdge: .bottom) { actionsPopover }
@@ -424,26 +425,10 @@ struct ClipboardHistoryView: View {
     }
 
     private func action(_ title: String, symbol: String, shortcut: String? = nil, enabled: Bool = true, perform: @escaping () -> Void) -> some View {
-        Button {
+        ClipboardActionRow(title: title, symbol: symbol, shortcut: shortcut, isEnabled: enabled) {
             showsActions = false
             perform()
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: symbol)
-                    .font(.system(size: 13))
-                    .frame(width: 17)
-                    .foregroundStyle(JutilitiesTheme.muted)
-                Text(title).font(.system(size: 12))
-                Spacer()
-                if let shortcut { ShortcutKey(label: shortcut) }
-            }
-            .contentShape(Rectangle())
-            .padding(.horizontal, 10)
-            .frame(height: 32)
         }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-        .opacity(enabled ? 1 : 0.4)
     }
 
     private func errorBanner(_ error: String) -> some View {
@@ -499,6 +484,38 @@ struct ClipboardHistoryView: View {
         default: return false
         }
         return true
+    }
+}
+
+private struct ClipboardActionRow: View {
+    let title: String
+    let symbol: String
+    let shortcut: String?
+    let isEnabled: Bool
+    let perform: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: perform) {
+            HStack(spacing: 10) {
+                Image(systemName: symbol)
+                    .font(.system(size: 13))
+                    .frame(width: 17)
+                    .foregroundStyle(JutilitiesTheme.muted)
+                Text(title).font(.system(size: 12))
+                Spacer()
+                if let shortcut { ShortcutKey(label: shortcut) }
+            }
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, minHeight: 32)
+            .contentShape(Rectangle())
+            .background(isEnabled && isHovered ? Color.white.opacity(0.07) : .clear,
+                        in: RoundedRectangle(cornerRadius: 5))
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1 : 0.4)
+        .onHover { isHovered = $0 }
     }
 }
 
