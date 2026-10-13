@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-labelledby="title desc">
   <title id="title">Jutilities</title>
-  <desc id="desc">A graphite macOS app icon with an off-white J and U monogram shaped like a holder, cradling a small stack of lavender cards that suggests clipboard history.</desc>
+  <desc id="desc">A graphite macOS app icon with a clean off-white J and U monogram.</desc>
   <defs>
     <clipPath id="bodyClip">
       <path d="M350 60H674C884 60 964 140 964 350V674C964 884 884 964 674 964H350C140 964 60 884 60 674V350C60 140 140 60 350 60Z"/>
@@ -23,14 +23,6 @@
       <stop offset="0" stop-color="#F7F6FA"/>
       <stop offset="1" stop-color="#DAD8E2"/>
     </linearGradient>
-    <linearGradient id="frontCard" x1="0" y1="408" x2="0" y2="616" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#B9B3EC"/>
-      <stop offset="1" stop-color="#958DD3"/>
-    </linearGradient>
-    <linearGradient id="backCard" x1="0" y1="376" x2="0" y2="600" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#736DA6"/>
-      <stop offset="1" stop-color="#58538A"/>
-    </linearGradient>
   </defs>
 
   <!-- Icon body -->
@@ -38,15 +30,6 @@
   <g clip-path="url(#bodyClip)">
     <rect x="60" y="60" width="904" height="904" fill="url(#bodySheen)"/>
     <path d="M350 60H674C884 60 964 140 964 350V674C964 884 884 964 674 964H350C140 964 60 884 60 674V350C60 140 140 60 350 60Z" fill="none" stroke="url(#rim)" stroke-width="6"/>
-  </g>
-
-  <!-- Card stack (clipboard history) -->
-  <g>
-    <rect x="444" y="386" width="136" height="224" rx="20" fill="#000000" fill-opacity="0.22"/>
-    <rect x="444" y="376" width="136" height="224" rx="20" fill="url(#backCard)"/>
-    <path d="M450 434H574C587 434 596 443 596 456V604C596 617 587 626 574 626H450C437 626 428 617 428 604V456C428 443 437 434 450 434Z" fill="#000000" fill-opacity="0.24"/>
-    <path d="M494 408H530C537 408 542 413 542 420V424H574C587 424 596 433 596 446V594C596 607 587 616 574 616H450C437 616 428 607 428 594V446C428 433 437 424 450 424H482V420C482 413 487 408 494 408Z" fill="url(#frontCard)"/>
-    <rect x="429" y="425" width="166" height="2" rx="1" fill="#FFFFFF" fill-opacity="0.22"/>
   </g>
 
   <!-- J/U monogram -->

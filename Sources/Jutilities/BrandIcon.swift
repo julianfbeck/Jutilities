@@ -21,10 +21,6 @@ enum BrandIcon {
             monogram.line(to: NSPoint(x: 4.8, y: 9.7))
             monogram.stroke()
 
-            let card = NSBezierPath(roundedRect: NSRect(x: 7, y: 7.8, width: 3.4, height: 4.9),
-                                    xRadius: 0.65, yRadius: 0.65)
-            card.fill()
-
             if keepingAwake {
                 NSBezierPath(ovalIn: NSRect(x: 14.8, y: 13.8, width: 2, height: 2)).fill()
             }
