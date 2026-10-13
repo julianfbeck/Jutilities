@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-labelledby="title desc">
+  <title id="title">Jutilities</title>
+  <desc id="desc">A graphite macOS app icon with an off-white J and U monogram shaped like a holder, cradling a small stack of lavender cards that suggests clipboard history.</desc>
+  <defs>
+    <clipPath id="bodyClip">
+      <path d="M350 60H674C884 60 964 140 964 350V674C964 884 884 964 674 964H350C140 964 60 884 60 674V350C60 140 140 60 350 60Z"/>
+    </clipPath>
+    <linearGradient id="bodyFill" x1="0" y1="60" x2="0" y2="964" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3D3E46"/>
+      <stop offset="0.55" stop-color="#2B2C32"/>
+      <stop offset="1" stop-color="#1D1E23"/>
+    </linearGradient>
+    <radialGradient id="bodySheen" cx="512" cy="120" r="620" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.07"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="60" x2="0" y2="964" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.20"/>
+      <stop offset="0.35" stop-color="#FFFFFF" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.30"/>
+    </linearGradient>
+    <linearGradient id="markFill" x1="0" y1="222" x2="0" y2="788" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F7F6FA"/>
+      <stop offset="1" stop-color="#DAD8E2"/>
+    </linearGradient>
+    <linearGradient id="frontCard" x1="0" y1="408" x2="0" y2="616" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#B9B3EC"/>
+      <stop offset="1" stop-color="#958DD3"/>
+    </linearGradient>
+    <linearGradient id="backCard" x1="0" y1="376" x2="0" y2="600" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#736DA6"/>
+      <stop offset="1" stop-color="#58538A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Icon body -->
+  <path d="M350 60H674C884 60 964 140 964 350V674C964 884 884 964 674 964H350C140 964 60 884 60 674V350C60 140 140 60 350 60Z" fill="url(#bodyFill)"/>
+  <g clip-path="url(#bodyClip)">
+    <rect x="60" y="60" width="904" height="904" fill="url(#bodySheen)"/>
+    <path d="M350 60H674C884 60 964 140 964 350V674C964 884 884 964 674 964H350C140 964 60 884 60 674V350C60 140 140 60 350 60Z" fill="none" stroke="url(#rim)" stroke-width="6"/>
+  </g>
+
+  <!-- Card stack (clipboard history) -->
+  <g>
+    <rect x="444" y="386" width="136" height="224" rx="20" fill="#000000" fill-opacity="0.22"/>
+    <rect x="444" y="376" width="136" height="224" rx="20" fill="url(#backCard)"/>
+    <path d="M450 434H574C587 434 596 443 596 456V604C596 617 587 626 574 626H450C437 626 428 617 428 604V456C428 443 437 434 450 434Z" fill="#000000" fill-opacity="0.24"/>
+    <path d="M494 408H530C537 408 542 413 542 420V424H574C587 424 596 433 596 446V594C596 607 587 616 574 616H450C437 616 428 607 428 594V446C428 433 437 424 450 424H482V420C482 413 487 408 494 408Z" fill="url(#frontCard)"/>
+    <rect x="429" y="425" width="166" height="2" rx="1" fill="#FFFFFF" fill-opacity="0.22"/>
+  </g>
+
+  <!-- J/U monogram -->
+  <path d="M672 270V580A160 160 0 0 1 352 580V470" fill="none" stroke="#000000" stroke-opacity="0.28" stroke-width="96" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 12)"/>
+  <path d="M672 270V580A160 160 0 0 1 352 580V470" fill="none" stroke="url(#markFill)" stroke-width="96" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

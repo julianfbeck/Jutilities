@@ -106,6 +106,8 @@ Swift Package tests cover the storage and power planning code. The Xcode scheme 
 
 The generated Xcode project is not tracked. Edit `project.yml` and regenerate it with XcodeGen. See [AGENTS.md](AGENTS.md) for contribution constraints.
 
+The app icon's editable source is [Config/AppIcon.svg](Config/AppIcon.svg), designed with Claude Opus 5.5 ([PNG preview](docs/icon.png)). To regenerate the bundled macOS icon, install `librsvg` and run `./scripts/generate-icon.sh`. The generated `Config/AppIcon.icns` is committed, so normal builds do not need the SVG renderer.
+
 ## License
 
 [MIT](LICENSE). The UI is independently implemented; Jutilities is not affiliated with Raycast.

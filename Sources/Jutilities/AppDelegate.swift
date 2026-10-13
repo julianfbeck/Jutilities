@@ -412,11 +412,11 @@ private struct UtilityMenuView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 10) {
-                    Text("JU")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(JutilitiesTheme.accent)
+                    Image(nsImage: BrandIcon.image(size: 32))
+                        .resizable()
+                        .scaledToFit()
                         .frame(width: 30, height: 30)
-                        .background(JutilitiesTheme.surface, in: RoundedRectangle(cornerRadius: 7))
+                        .accessibilityHidden(true)
                     Text("Jutilities").font(.system(size: 14, weight: .semibold))
                     Spacer()
                 }
