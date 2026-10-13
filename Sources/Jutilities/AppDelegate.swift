@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var store: ClipboardStore?
     private var statusItem: NSStatusItem?
     private var panel: NSPanel?
+    private var previewMenuPanel: NSPanel?
     private var popover: NSPopover?
     private var maintenanceTimer: Timer?
     private var previousApplication: NSRunningApplication?
@@ -154,7 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.contentViewController = popup.contentViewController
             window.isReleasedWhenClosed = false
             window.center()
-            panel = window
+            previewMenuPanel = window
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
@@ -165,6 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func showClipboard() {
         popover?.performClose(nil)
+        previewMenuPanel?.orderOut(nil)
         if let front = NSWorkspace.shared.frontmostApplication, front.processIdentifier != getpid() {
             previousApplication = front
         }
@@ -395,82 +397,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 private final class LauncherPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
-}
-
-private struct UtilityMenuView: View {
-    @ObservedObject var model: ClipboardViewModel
-    @ObservedObject var power: PowerManager
-    let isPreview: Bool
-    let openClipboard: () -> Void
-    let restoreBackup: () -> Void
-    let openStorage: () -> Void
-    let quit: () -> Void
-    @State private var loginError: String?
-    @State private var launchesAtLogin = SMAppService.mainApp.status == .enabled
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 10) {
-                    Image(nsImage: BrandIcon.image(size: 32))
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 30, height: 30)
-                        .accessibilityHidden(true)
-                    Text("Jutilities").font(.system(size: 14, weight: .semibold))
-                    Spacer()
-                }
-                Button(action: openClipboard) {
-                    HStack {
-                        Label("Clipboard History", systemImage: "square.stack")
-                        Spacer()
-                        ShortcutKey(label: "⌥V")
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 9)
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    .background(JutilitiesTheme.selection, in: RoundedRectangle(cornerRadius: 7))
-                }
-                .buttonStyle(.plain)
-                .help("Open clipboard history (Option–V)")
-                .accessibilityHint("Option–V opens clipboard history")
-                Toggle("Capture clipboard", isOn: Binding(get: { !model.isPaused }, set: { value in
-                    model.isPaused = !value
-                    model.onTogglePause(!value)
-                })).toggleStyle(.switch)
-                Text("Saved on this Mac. Cleared after 60 days.")
-                    .font(.caption).foregroundStyle(.secondary)
-                Divider().overlay(JutilitiesTheme.separator)
-                PowerSettingsView(manager: power)
-                Divider().overlay(JutilitiesTheme.separator)
-                Toggle("Open Jutilities at login", isOn: Binding(get: { launchesAtLogin }, set: { value in
-                    guard !isPreview else { loginError = "Preview mode does not change login items."; return }
-                    do {
-                        if value { try SMAppService.mainApp.register() }
-                        else { try SMAppService.mainApp.unregister() }
-                        launchesAtLogin = SMAppService.mainApp.status == .enabled
-                        if value && !launchesAtLogin { loginError = "Allow Jutilities in System Settings → Login Items." }
-                    } catch { loginError = error.localizedDescription }
-                })).toggleStyle(.switch)
-                if let loginError { Text(loginError).font(.caption).foregroundStyle(.orange) }
-                HStack {
-                    Button("Restore Backup…", action: restoreBackup)
-                    Spacer()
-                    Button("Storage", action: openStorage)
-                }.font(.caption)
-                HStack {
-                    Text("Jutilities 0.1.0").font(.caption).foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Quit", action: quit)
-                }
-            }.padding(16)
-        }
-        .font(.system(size: 12))
-        .controlSize(.small)
-        .tint(JutilitiesTheme.accent)
-        .preferredColorScheme(.dark)
-        .background(JutilitiesTheme.background)
-        .frame(width: JutilitiesLayout.menuSize.width, height: JutilitiesLayout.menuSize.height)
-    }
 }

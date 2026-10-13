@@ -47,13 +47,13 @@ Use `--preview-menu` instead of `--preview` to inspect the menu-bar controls in 
 | ⌘Delete | Delete the selected item |
 | Escape | Close actions or the clipboard panel |
 
-Type to search. The compact, resizable clipboard panel opens at 760 × 500 points. Use the JU menu bar item to pause capture, open history, restore a backup or change power settings. Expand **Sleep & lock settings** to edit saved macOS defaults. If another app uses ⌥V, open history from the menu bar instead.
+Type to search. The compact, resizable clipboard panel opens at 760 × 500 points. The JU menu groups controls into **Clipboard**, **Keep awake**, and **Sleep & lock settings**. Expand **History & backups** under Clipboard to export or restore history and open its data folder. Expand **Sleep & lock settings** to edit saved macOS defaults. The header's gear menu holds launch-at-login, and Quit stays in the footer while settings scroll. If another app uses ⌥V, open history from the menu bar instead.
 
 Automatic paste needs **System Settings → Privacy & Security → Accessibility → Jutilities**. Without this optional permission, Jutilities copies the item and you can paste with ⌘V. A locally rebuilt app may need its Accessibility grant renewed.
 
 On first launch, a setup popup offers **Enable Automatic Paste** and **Use Copy-Only**. Enable asks macOS for permission and opens the Accessibility pane.
 
-Enable **Open Jutilities at login** in the JU menu. The native login item can also be registered by launching the installed app with `--enable-login`:
+Enable **Open Jutilities at login** from the gear in the JU menu. The native login item can also be registered by launching the installed app with `--enable-login`:
 
 ```sh
 open "$HOME/Applications/Jutilities.app" --args --enable-login

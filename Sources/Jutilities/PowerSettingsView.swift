@@ -11,6 +11,7 @@ struct PowerMenuView: View {
             HStack {
                 Label("Keep awake", systemImage: "cup.and.saucer.fill")
                     .font(.system(size: 12, weight: .semibold))
+                    .accessibilityAddTraits(.isHeader)
                 Spacer()
                 Text(manager.isKeepingAwake ? "On" : "Off")
                     .font(.caption.weight(.semibold))
@@ -29,7 +30,7 @@ struct PowerMenuView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            Picker("For", selection: $durationMinutes) {
+            Picker("Duration", selection: $durationMinutes) {
                 Text("15 minutes").tag(15)
                 Text("30 minutes").tag(30)
                 Text("1 hour").tag(60)
@@ -37,12 +38,20 @@ struct PowerMenuView: View {
                 Text("Indefinitely").tag(0)
             }
             .controlSize(.small)
-            Toggle("Keep display awake too", isOn: $display)
-                .toggleStyle(.switch)
-                .controlSize(.small)
             HStack {
-                Button(manager.isKeepingAwake ? "Restart session" : "Start") {
+                Text("Keep display awake too")
+                Spacer()
+                Toggle("Keep display awake too", isOn: $display)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+            }
+            HStack {
+                Button {
                     manager.start(duration: durationMinutes == 0 ? nil : TimeInterval(durationMinutes * 60), display: display)
+                } label: {
+                    Text(manager.isKeepingAwake ? "Restart session" : "Start session")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 if manager.isKeepingAwake {
@@ -66,8 +75,6 @@ struct PowerSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            PowerMenuView(manager: manager)
-            Divider().overlay(JutilitiesTheme.separator)
             DisclosureGroup(isExpanded: $showsSleepSettings) {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
