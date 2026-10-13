@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install build tools
+        run: |
+          brew install xcodegen
+          npm install --global xcodebuildmcp@2.7.0
+      - name: Test core package
+        run: xcodebuildmcp swift-package test --package-path "$GITHUB_WORKSPACE"
+      - name: Generate Xcode project
+        run: xcodegen generate --spec project.yml
+      - name: Run native tests
+        run: >-
+          xcodebuildmcp macos test
+          --project-path "$GITHUB_WORKSPACE/Jutilities.xcodeproj"
+          --scheme Jutilities
+          --derived-data-path "$GITHUB_WORKSPACE/build/TestDerivedData"
+      - name: Build Release app
+        run: ./scripts/build.sh
