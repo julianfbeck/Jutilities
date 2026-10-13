@@ -26,9 +26,7 @@ struct ClipboardHistoryView: View {
             actionBar
         }
         .background {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .overlay(JutilitiesTheme.background.opacity(0.94))
+            TranslucentBackground()
         }
         .overlay {
             RoundedRectangle(cornerRadius: JutilitiesLayout.cornerRadius)

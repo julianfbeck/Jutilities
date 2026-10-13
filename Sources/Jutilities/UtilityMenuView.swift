@@ -39,7 +39,7 @@ struct UtilityMenuView: View {
         .controlSize(.small)
         .tint(JutilitiesTheme.accent)
         .preferredColorScheme(.dark)
-        .background(JutilitiesTheme.background)
+        .background { TranslucentBackground() }
         .frame(width: JutilitiesLayout.menuSize.width, height: JutilitiesLayout.menuSize.height)
     }
 

@@ -18,6 +18,37 @@ enum JutilitiesTheme {
     static let selection = Color(red: 0.76, green: 0.80, blue: 0.93).opacity(0.09)
 }
 
+/// Native backdrop blur keeps the desktop visible without fading the controls.
+struct TranslucentBackground: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        Group {
+            if reduceTransparency {
+                JutilitiesTheme.background
+            } else {
+                BackdropMaterial()
+                    .overlay(JutilitiesTheme.background.opacity(0.40))
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct BackdropMaterial: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.appearance = NSAppearance(named: .darkAqua)
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
+}
+
 struct ShortcutKey: View {
     let label: String
 

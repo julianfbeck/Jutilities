@@ -143,6 +143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                                    },
                                    quit: { NSApp.terminate(nil) })
         let popup = NSPopover()
+        popup.appearance = NSAppearance(named: .darkAqua)
         popup.behavior = .transient
         popup.contentViewController = NSHostingController(rootView: view)
         popup.contentSize = JutilitiesLayout.menuSize
@@ -152,6 +153,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let window = LauncherPanel(contentRect: NSRect(origin: .zero, size: JutilitiesLayout.menuSize),
                                        styleMask: [.titled, .closable], backing: .buffered, defer: false)
             window.title = "Jutilities — Utilities Preview"
+            window.appearance = NSAppearance(named: .darkAqua)
+            window.isOpaque = false
+            window.backgroundColor = .clear
             window.contentViewController = popup.contentViewController
             window.isReleasedWhenClosed = false
             window.center()
@@ -174,6 +178,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let window = LauncherPanel(contentRect: NSRect(origin: .zero, size: JutilitiesLayout.clipboardSize),
                                        styleMask: [.borderless, .resizable], backing: .buffered, defer: false)
             window.title = "Jutilities — Clipboard History"
+            window.appearance = NSAppearance(named: .darkAqua)
             window.identifier = NSUserInterfaceItemIdentifier("JutilitiesClipboard")
             window.level = .floating
             window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
