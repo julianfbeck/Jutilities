@@ -38,7 +38,7 @@ Use `--preview-menu` instead of `--preview` to inspect the menu-bar controls in 
 
 | Shortcut | Action |
 | --- | --- |
-| ⇧⌘V | Open Clipboard History |
+| ⌥V | Open Clipboard History |
 | ↑ / ↓ | Select an item |
 | Return | Copy and paste into the previous app |
 | ⌘Return | Copy only |
@@ -47,7 +47,7 @@ Use `--preview-menu` instead of `--preview` to inspect the menu-bar controls in 
 | ⌘Delete | Delete the selected item |
 | Escape | Close actions or the clipboard panel |
 
-Type to search. Use the JU menu bar item to pause capture, open history, restore a backup or change power settings. If another app uses ⇧⌘V, open history from the menu bar instead.
+Type to search. Use the JU menu bar item to pause capture, open history, restore a backup or change power settings. If another app uses ⌥V, open history from the menu bar instead.
 
 Automatic paste needs **System Settings → Privacy & Security → Accessibility → Jutilities**. Without this optional permission, Jutilities copies the item and you can paste with ⌘V. A locally rebuilt app may need its Accessibility grant renewed.
 

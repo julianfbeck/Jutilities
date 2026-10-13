@@ -18,7 +18,7 @@ final class GlobalHotKey {
         }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), &handler)
         guard status == noErr else { return false }
         let identifier = EventHotKeyID(signature: 0x4A55544C, id: 1)
-        let registered = RegisterEventHotKey(UInt32(kVK_ANSI_V), UInt32(cmdKey | shiftKey), identifier,
+        let registered = RegisterEventHotKey(UInt32(kVK_ANSI_V), UInt32(optionKey), identifier,
                                             GetApplicationEventTarget(), 0, &hotKey) == noErr
         if !registered, let handler { RemoveEventHandler(handler); self.handler = nil }
         return registered

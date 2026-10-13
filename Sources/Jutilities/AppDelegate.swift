@@ -27,7 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.applicationIconImage = BrandIcon.image(size: 256)
-        model.globalShortcutDescription = "⇧⌘V"
+        model.globalShortcutDescription = "⌥V"
         wireCallbacks()
         installMenuBar()
         do {
@@ -55,7 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     Task { @MainActor in self?.maintenance() }
                 }
                 if !hotKey.register(action: { [weak self] in self?.showClipboard() }) {
-                    model.errorMessage = "⇧⌘V is already in use. Open Clipboard History from the JU menu bar icon."
+                    model.errorMessage = "⌥V is already in use. Open Clipboard History from the JU menu bar icon."
                 }
             }
             // The first launch shows the empty panel and documents the shortcut.
@@ -423,7 +423,7 @@ private struct UtilityMenuView: View {
                     HStack {
                         Label("Clipboard History", systemImage: "square.stack")
                         Spacer()
-                        Text("⇧⌘V").foregroundStyle(.secondary)
+                        Text("⌥V").foregroundStyle(.secondary)
                     }.frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)

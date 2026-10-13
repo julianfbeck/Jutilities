@@ -21,7 +21,7 @@ final class ClipboardViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var isPaused = false
     @Published var databaseSizeDescription: String?
-    var globalShortcutDescription = "⌥⌘V"
+    var globalShortcutDescription = "⌥V"
 
     var onSearch: (String, ClipboardKind?) -> Void = { _, _ in }
     var onCopy: (ClipboardEntry, Bool) -> Void = { _, _ in }
