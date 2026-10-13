@@ -64,6 +64,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 else { showClipboard() }
                 if !isPreview { UserDefaults.standard.set(true, forKey: "hasLaunched") }
             }
+            if !isPreview, !AXIsProcessTrusted(),
+               !UserDefaults.standard.bool(forKey: "hasOfferedAutomaticPaste") {
+                UserDefaults.standard.set(true, forKey: "hasOfferedAutomaticPaste")
+                DispatchQueue.main.async { [weak self] in self?.showAccessibilityHelp() }
+            }
         } catch {
             model.errorMessage = error.localizedDescription
             showClipboard()
@@ -292,12 +297,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func showAccessibilityHelp() {
         let alert = NSAlert()
-        alert.messageText = "Enable automatic paste?"
-        alert.informativeText = "Jutilities restored the item to your clipboard. Automatic paste needs Accessibility permission. You can also paste it yourself with ⌘V."
-        alert.addButton(withTitle: "Open Accessibility Settings")
-        alert.addButton(withTitle: "Keep Manual Paste")
+        alert.messageText = "Set up Jutilities automatic paste"
+        alert.informativeText = "Jutilities needs Accessibility permission to paste selected history into your previous app. Choose Enable, then allow Jutilities in macOS Accessibility settings. You can also use copy-only mode and paste yourself with ⌘V."
+        alert.addButton(withTitle: "Enable Automatic Paste")
+        alert.addButton(withTitle: "Use Copy-Only")
+        NSApp.activate(ignoringOtherApps: true)
         if alert.runModal() == .alertFirstButtonReturn,
            let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
             NSWorkspace.shared.open(url)
         }
     }

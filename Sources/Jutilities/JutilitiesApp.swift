@@ -1,10 +1,21 @@
 import AppKit
+import ServiceManagement
 
 @main
 struct JutilitiesApp {
     @MainActor static func main() {
         if CommandLine.arguments.contains("--version") {
             print("Jutilities 0.1.0")
+            return
+        }
+        if CommandLine.arguments.contains("--login-status") {
+            switch SMAppService.mainApp.status {
+            case .enabled: print("enabled")
+            case .requiresApproval: print("requires-approval")
+            case .notRegistered: print("not-registered")
+            case .notFound: print("not-found")
+            @unknown default: print("unknown")
+            }
             return
         }
         if let index = CommandLine.arguments.firstIndex(of: "--export-icons"),

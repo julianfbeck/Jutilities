@@ -51,6 +51,8 @@ Type to search. Use the JU menu bar item to pause capture, open history, restore
 
 Automatic paste needs **System Settings → Privacy & Security → Accessibility → Jutilities**. Without this optional permission, Jutilities copies the item and you can paste with ⌘V. A locally rebuilt app may need its Accessibility grant renewed.
 
+On first launch, a setup popup offers **Enable Automatic Paste** and **Use Copy-Only**. Enable asks macOS for permission and opens the Accessibility pane.
+
 Enable **Open Jutilities at login** in the JU menu. The native login item can also be registered by launching the installed app with `--enable-login`:
 
 ```sh
@@ -58,6 +60,8 @@ open "$HOME/Applications/Jutilities.app" --args --enable-login
 ```
 
 If Jutilities is already running, quit it before launching with this argument. macOS may require approval in **System Settings → General → Login Items**.
+
+Check registration without opening a window with `Jutilities.app/Contents/MacOS/Jutilities --login-status`.
 
 ## Clipboard storage and privacy
 
