@@ -47,7 +47,7 @@ Use `--preview-menu` instead of `--preview` to inspect the menu-bar controls in 
 | ⌘Delete | Delete the selected item |
 | Escape | Close actions or the clipboard panel |
 
-Type to search. The compact, resizable clipboard panel opens at 760 × 500 points. The JU menu groups controls into **Clipboard**, **Keep awake**, and **Sleep & lock settings**. Expand **History & backups** under Clipboard to export or restore history and open its data folder. Expand **Sleep & lock settings** to edit saved macOS defaults. The header's gear menu holds launch-at-login, and Quit stays in the footer while settings scroll. If another app uses ⌥V, open history from the menu bar instead.
+Type to search. The compact, resizable clipboard panel opens at 760 × 500 points. Drag its top edge to move it; reopening history keeps that position for the current session. The JU menu groups controls into **Clipboard**, **Keep awake**, and **Sleep & lock settings**. Expand **History & backups** under Clipboard to export or restore history and open its data folder. Expand **Sleep & lock settings** to edit saved macOS defaults. The header's gear menu holds launch-at-login, and Quit stays in the footer while settings scroll. If another app uses ⌥V, open history from the menu bar instead.
 
 Both panels use a translucent native backdrop with a dark tint to keep the controls readable. macOS **Reduce Transparency** switches them to a solid background.
 

@@ -94,6 +94,11 @@ struct ClipboardHistoryView: View {
         .padding(.horizontal, 18)
         .frame(height: 56)
         .background(JutilitiesTheme.surface)
+        .overlay(alignment: .top) {
+            ClipboardWindowDragArea()
+                .frame(height: 12)
+                .accessibilityHidden(true)
+        }
     }
 
     private var contentTypeMenu: some View {

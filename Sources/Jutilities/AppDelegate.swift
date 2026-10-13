@@ -187,7 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.isOpaque = false
             window.backgroundColor = .clear
             window.hasShadow = true
-            window.isMovableByWindowBackground = true
+            window.isMovableByWindowBackground = false
             window.minSize = JutilitiesLayout.clipboardMinimumSize
             window.isReleasedWhenClosed = false
             window.delegate = self
