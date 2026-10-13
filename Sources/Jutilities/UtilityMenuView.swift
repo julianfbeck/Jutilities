@@ -108,6 +108,10 @@ struct UtilityMenuView: View {
             Text("Stored locally · Cleared after 60 days")
                 .font(.system(size: 10))
                 .foregroundStyle(JutilitiesTheme.muted)
+            Label("Sensitive copies excluded", systemImage: "lock.shield")
+                .font(.system(size: 10))
+                .foregroundStyle(JutilitiesTheme.muted)
+                .help("Copies from supported password managers and clips marked private are skipped. Pause capture for passwords copied without a private marker, including some browser extensions.")
             DisclosureGroup(isExpanded: $showsHistoryTools) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
