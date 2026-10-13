@@ -144,11 +144,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let popup = NSPopover()
         popup.behavior = .transient
         popup.contentViewController = NSHostingController(rootView: view)
-        popup.contentSize = NSSize(width: 390, height: 660)
+        popup.contentSize = JutilitiesLayout.menuSize
         if CommandLine.arguments.contains("--preview-menu") {
             // Preview the same menu content in a regular window so it remains
             // inspectable when this fixture app is not the active menu-bar owner.
-            let window = LauncherPanel(contentRect: NSRect(x: 0, y: 0, width: 390, height: 660),
+            let window = LauncherPanel(contentRect: NSRect(origin: .zero, size: JutilitiesLayout.menuSize),
                                        styleMask: [.titled, .closable], backing: .buffered, defer: false)
             window.title = "Jutilities — Utilities Preview"
             window.contentViewController = popup.contentViewController
@@ -169,7 +169,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             previousApplication = front
         }
         if panel == nil {
-            let window = LauncherPanel(contentRect: NSRect(x: 0, y: 0, width: 920, height: 620),
+            let window = LauncherPanel(contentRect: NSRect(origin: .zero, size: JutilitiesLayout.clipboardSize),
                                        styleMask: [.borderless, .resizable], backing: .buffered, defer: false)
             window.title = "Jutilities — Clipboard History"
             window.identifier = NSUserInterfaceItemIdentifier("JutilitiesClipboard")
@@ -179,11 +179,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.backgroundColor = .clear
             window.hasShadow = true
             window.isMovableByWindowBackground = true
-            window.minSize = NSSize(width: 820, height: 520)
+            window.minSize = JutilitiesLayout.clipboardMinimumSize
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.contentView = NSHostingView(rootView: ClipboardHistoryView(model: model)
-                .clipShape(RoundedRectangle(cornerRadius: 14)))
+                .clipShape(RoundedRectangle(cornerRadius: JutilitiesLayout.cornerRadius)))
             window.center()
             panel = window
         }
@@ -410,32 +410,40 @@ private struct UtilityMenuView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    Text("JU").font(.system(size: 22, weight: .bold, design: .rounded)).foregroundStyle(.red)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Jutilities").font(.headline)
-                        Text("A little more useful.").font(.caption).foregroundStyle(.secondary)
-                    }
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    Text("JU")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(JutilitiesTheme.accent)
+                        .frame(width: 30, height: 30)
+                        .background(JutilitiesTheme.surface, in: RoundedRectangle(cornerRadius: 7))
+                    Text("Jutilities").font(.system(size: 14, weight: .semibold))
                     Spacer()
                 }
                 Button(action: openClipboard) {
                     HStack {
                         Label("Clipboard History", systemImage: "square.stack")
                         Spacer()
-                        Text("⌥V").foregroundStyle(.secondary)
-                    }.frame(maxWidth: .infinity)
+                        ShortcutKey(label: "⌥V")
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 9)
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .background(JutilitiesTheme.selection, in: RoundedRectangle(cornerRadius: 7))
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.plain)
+                .help("Open clipboard history (Option–V)")
+                .accessibilityHint("Option–V opens clipboard history")
                 Toggle("Capture clipboard", isOn: Binding(get: { !model.isPaused }, set: { value in
                     model.isPaused = !value
                     model.onTogglePause(!value)
-                }))
-                Text("Text and images stay on this Mac and expire after 60 days.")
+                })).toggleStyle(.switch)
+                Text("Saved on this Mac. Cleared after 60 days.")
                     .font(.caption).foregroundStyle(.secondary)
-                Divider()
+                Divider().overlay(JutilitiesTheme.separator)
                 PowerSettingsView(manager: power)
-                Divider()
+                Divider().overlay(JutilitiesTheme.separator)
                 Toggle("Open Jutilities at login", isOn: Binding(get: { launchesAtLogin }, set: { value in
                     guard !isPreview else { loginError = "Preview mode does not change login items."; return }
                     do {
@@ -444,7 +452,7 @@ private struct UtilityMenuView: View {
                         launchesAtLogin = SMAppService.mainApp.status == .enabled
                         if value && !launchesAtLogin { loginError = "Allow Jutilities in System Settings → Login Items." }
                     } catch { loginError = error.localizedDescription }
-                }))
+                })).toggleStyle(.switch)
                 if let loginError { Text(loginError).font(.caption).foregroundStyle(.orange) }
                 HStack {
                     Button("Restore Backup…", action: restoreBackup)
@@ -456,8 +464,13 @@ private struct UtilityMenuView: View {
                     Spacer()
                     Button("Quit", action: quit)
                 }
-            }.padding(20)
+            }.padding(16)
         }
-        .frame(width: 390, height: 660)
+        .font(.system(size: 12))
+        .controlSize(.small)
+        .tint(JutilitiesTheme.accent)
+        .preferredColorScheme(.dark)
+        .background(JutilitiesTheme.background)
+        .frame(width: JutilitiesLayout.menuSize.width, height: JutilitiesLayout.menuSize.height)
     }
 }

@@ -7,10 +7,10 @@ struct PowerMenuView: View {
     @State private var display = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Label("Keep awake", systemImage: "cup.and.saucer.fill")
-                    .font(.headline)
+                    .font(.system(size: 12, weight: .semibold))
                 Spacer()
                 Text(manager.isKeepingAwake ? "On" : "Off")
                     .font(.caption.weight(.semibold))
@@ -36,6 +36,7 @@ struct PowerMenuView: View {
                 Text("2 hours").tag(120)
                 Text("Indefinitely").tag(0)
             }
+            .controlSize(.small)
             Toggle("Keep display awake too", isOn: $display)
                 .toggleStyle(.switch)
                 .controlSize(.small)
@@ -50,7 +51,7 @@ struct PowerMenuView: View {
                 }
                 Spacer()
             }
-            Text("Screen saver and locking follow your macOS settings. Manual sleep still works.")
+            Text("Screen saver and locking still follow macOS. Manual sleep stays available.")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .onAppear { display = manager.keepDisplayAwake }
@@ -59,46 +60,64 @@ struct PowerMenuView: View {
 
 struct PowerSettingsView: View {
     @ObservedObject var manager: PowerManager
+    @State private var showsSleepSettings = false
     private let minuteChoices = [0, 1, 2, 5, 10, 15, 30, 60, 120, 180, 240, 480, 1440]
     private let saverChoices = [0, 60, 120, 300, 600, 900, 1200, 1800, 3600, 7200]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             PowerMenuView(manager: manager)
-            Divider()
-            HStack {
-                Label("macOS defaults", systemImage: "moon.zzz")
-                    .font(.headline)
-                Spacer()
-                Button { manager.refreshSettings() } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .buttonStyle(.plain)
-                .help("Read current macOS settings")
-                .disabled(manager.isApplying)
-            }
-            VStack(spacing: 10) {
-                timeoutPicker("Computer sleep", selection: $manager.systemSleepMinutes, choices: minuteChoices, seconds: false)
-                timeoutPicker("Display sleep", selection: $manager.displaySleepMinutes, choices: minuteChoices, seconds: false)
-                timeoutPicker("Screen saver", selection: $manager.screenSaverIdleSeconds, choices: saverChoices, seconds: true)
-                    .disabled(manager.screenSaverIsManaged)
-                Picker("Require password", selection: $manager.lockSetting) {
-                    Text("Not reported by macOS").tag(Optional<PowerLockSetting>.none)
-                    ForEach(lockChoices, id: \.self) { setting in
-                        Text(setting.label).tag(Optional(setting))
+            Divider().overlay(JutilitiesTheme.separator)
+            DisclosureGroup(isExpanded: $showsSleepSettings) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Saved macOS settings")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button { manager.refreshSettings() } label: {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        .buttonStyle(.plain)
+                        .help("Read current macOS settings")
+                        .disabled(manager.isApplying)
                     }
+                    .font(.caption)
+                    VStack(spacing: 9) {
+                        timeoutPicker("Computer sleep", selection: $manager.systemSleepMinutes, choices: minuteChoices, seconds: false)
+                        timeoutPicker("Display sleep", selection: $manager.displaySleepMinutes, choices: minuteChoices, seconds: false)
+                        timeoutPicker("Screen saver", selection: $manager.screenSaverIdleSeconds, choices: saverChoices, seconds: true)
+                            .disabled(manager.screenSaverIsManaged)
+                        Picker("Require password", selection: $manager.lockSetting) {
+                            Text("Not reported by macOS").tag(Optional<PowerLockSetting>.none)
+                            ForEach(lockChoices, id: \.self) { setting in
+                                Text(setting.label).tag(Optional(setting))
+                            }
+                        }
+                    }
+                    .controlSize(.small)
+                    .disabled(manager.isApplying)
+                    Text("Sleep changes apply to all power sources and may ask for administrator approval. Password delay applies after screen saver or display sleep and may ask for your account password.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    HStack {
+                        Button("Apply changes") { manager.applySettings() }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!manager.hasPendingChanges || manager.isApplying)
+                        if manager.isApplying { ProgressView().controlSize(.small) }
+                        Spacer()
+                    }
+                    HStack {
+                        Button("Lock Screen settings…") { manager.openLockScreenSettings() }
+                        Spacer()
+                        Button("Screen Saver…") { manager.openScreenSaverSettings() }
+                    }
+                    .buttonStyle(.link)
+                    .font(.caption)
                 }
-            }
-            .controlSize(.small)
-            .disabled(manager.isApplying)
-            Text("Sleep changes apply to all power sources and request administrator approval. Password delay applies after screen saver or display sleep and may require your account password.")
-                .font(.caption).foregroundStyle(.secondary)
-            HStack {
-                Button("Apply changes") { manager.applySettings() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!manager.hasPendingChanges || manager.isApplying)
-                if manager.isApplying { ProgressView().controlSize(.small) }
-                Spacer()
+                .padding(.top, 10)
+            } label: {
+                Label("Sleep & lock settings", systemImage: "moon.zzz")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.primary)
             }
             if let error = manager.errorMessage {
                 Text(error).font(.caption).foregroundStyle(.red)
@@ -106,16 +125,8 @@ struct PowerSettingsView: View {
             } else if let message = manager.message {
                 Text(message).font(.caption).foregroundStyle(.secondary)
             }
-            HStack {
-                Button("Lock Screen settings…") { manager.openLockScreenSettings() }
-                Spacer()
-                Button("Screen Saver…") { manager.openScreenSaverSettings() }
-            }
-            .buttonStyle(.link)
-            .font(.caption)
         }
-        .padding(20)
-        .frame(minWidth: 330, idealWidth: 370, maxWidth: 430)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var lockChoices: [PowerLockSetting] {

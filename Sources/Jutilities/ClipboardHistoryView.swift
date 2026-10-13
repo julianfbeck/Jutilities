@@ -17,7 +17,7 @@ struct ClipboardHistoryView: View {
             Divider().overlay(JutilitiesTheme.separator)
             HStack(spacing: 0) {
                 historyList
-                    .frame(width: 360)
+                    .frame(width: JutilitiesLayout.historyWidth)
                 Divider().overlay(JutilitiesTheme.separator)
                 detailPane
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -28,10 +28,16 @@ struct ClipboardHistoryView: View {
         .background {
             Rectangle()
                 .fill(.ultraThinMaterial)
-                .overlay(JutilitiesTheme.background.opacity(0.88))
+                .overlay(JutilitiesTheme.background.opacity(0.94))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: JutilitiesLayout.cornerRadius)
+                .strokeBorder(.white.opacity(0.10), lineWidth: 1)
+                .allowsHitTesting(false)
         }
         .preferredColorScheme(.dark)
-        .frame(minWidth: 820, minHeight: 520)
+        .frame(minWidth: JutilitiesLayout.clipboardMinimumSize.width,
+               minHeight: JutilitiesLayout.clipboardMinimumSize.height)
         .background {
             ClipboardKeyboardMonitor { event in handleKey(event) }
                 .frame(width: 0, height: 0)
@@ -46,13 +52,13 @@ struct ClipboardHistoryView: View {
     }
 
     private var searchBar: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 20, weight: .regular))
+                .font(.system(size: 17, weight: .regular))
                 .foregroundStyle(JutilitiesTheme.muted)
             TextField("Search your clipboard…", text: $model.query)
                 .textFieldStyle(.plain)
-                .font(.system(size: 19))
+                .font(.system(size: 16))
                 .focused($isSearchFocused)
                 .accessibilityLabel("Search clipboard history")
             if !model.query.isEmpty {
@@ -68,7 +74,7 @@ struct ClipboardHistoryView: View {
                 .accessibilityLabel("Clear search")
             }
             contentTypeMenu
-            Divider().frame(height: 21)
+            Divider().frame(height: 18)
             Menu {
                 Button(model.isPaused ? "Resume Clipboard Capture" : "Pause Clipboard Capture") {
                     model.togglePause()
@@ -78,7 +84,7 @@ struct ClipboardHistoryView: View {
                 Button("Clear History…", role: .destructive) { showsClearConfirmation = true }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 15, weight: .medium))
                     .frame(width: 20)
             }
             .menuStyle(.borderlessButton)
@@ -87,9 +93,9 @@ struct ClipboardHistoryView: View {
             .help("History settings")
             .accessibilityLabel("History settings")
         }
-        .padding(.horizontal, 24)
-        .frame(height: 72)
-        .background(.white.opacity(0.016))
+        .padding(.horizontal, 18)
+        .frame(height: 56)
+        .background(JutilitiesTheme.surface)
     }
 
     private var contentTypeMenu: some View {
@@ -106,9 +112,9 @@ struct ClipboardHistoryView: View {
                     .font(.system(size: 9, weight: .semibold))
             }
             .foregroundStyle(Color.white.opacity(0.75))
-            .padding(.horizontal, 11)
-            .padding(.vertical, 7)
-            .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 6))
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 5))
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
@@ -151,10 +157,10 @@ struct ClipboardHistoryView: View {
                         LazyVStack(alignment: .leading, spacing: 2) {
                             ForEach(sections) { section in
                                 Text(section.title)
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.system(size: 10, weight: .medium))
                                     .foregroundStyle(JutilitiesTheme.muted)
                                     .padding(.horizontal, 12)
-                                    .padding(.top, 16)
+                                    .padding(.top, 12)
                                     .padding(.bottom, 5)
                                     .accessibilityAddTraits(.isHeader)
 
@@ -174,7 +180,7 @@ struct ClipboardHistoryView: View {
                             }
                         }
                         .padding(.horizontal, 8)
-                        .padding(.bottom, 16)
+                        .padding(.bottom, 12)
                     }
                     .onChange(of: model.selectedID) { _, id in
                         if let id {
@@ -235,22 +241,22 @@ struct ClipboardHistoryView: View {
                 }
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(JutilitiesTheme.muted)
-                .padding(.horizontal, 26)
-                .padding(.top, 22)
-                .padding(.bottom, 16)
+                .padding(.horizontal, 20)
+                .padding(.top, 18)
+                .padding(.bottom, 12)
 
                 if entry.kind == .image {
                     imagePreview(entry)
                 } else {
                     ScrollView {
                         Text(model.selectedText ?? entry.previewText ?? entry.title)
-                            .font(.system(size: 15))
+                            .font(.system(size: 14))
                             .foregroundStyle(Color.white.opacity(0.89))
-                            .lineSpacing(6)
+                            .lineSpacing(4)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .topLeading)
-                            .padding(.horizontal, 26)
-                            .padding(.bottom, 24)
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 18)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -279,8 +285,8 @@ struct ClipboardHistoryView: View {
             Image(nsImage: image)
                 .resizable()
                 .scaledToFit()
-                .padding(.horizontal, 26)
-                .padding(.bottom, 24)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 18)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .accessibilityLabel("Preview of \(entry.title)")
         } else {
@@ -295,7 +301,7 @@ struct ClipboardHistoryView: View {
     }
 
     private func metadata(_ entry: ClipboardEntry) -> some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             metadataRow("Copied from", value: entry.sourceApp.isEmpty ? "Unknown app" : entry.sourceApp, symbol: "app")
             metadataRow("Last copied", value: entry.lastCopiedAt.formatted(.dateTime.month(.abbreviated).day().hour().minute()), symbol: "clock")
             if entry.kind == .image, let width = entry.imageWidth, let height = entry.imageHeight {
@@ -305,10 +311,10 @@ struct ClipboardHistoryView: View {
             }
             metadataRow("Size", value: ByteCountFormatter.string(fromByteCount: Int64(entry.byteCount), countStyle: .file), symbol: "doc")
         }
-        .padding(.horizontal, 26)
-        .padding(.vertical, 20)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
         .frame(maxWidth: .infinity)
-        .background(.white.opacity(0.016))
+        .background(JutilitiesTheme.surface)
         .overlay(alignment: .top) { Rectangle().fill(JutilitiesTheme.separator).frame(height: 1) }
     }
 
@@ -335,8 +341,8 @@ struct ClipboardHistoryView: View {
             Text("JU")
                 .font(.system(size: 10, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.white.opacity(0.8))
-                .frame(width: 23, height: 23)
-                .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
+                .frame(width: 20, height: 20)
+                .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 5))
                 .accessibilityLabel("Jutilities")
             if let status = model.statusMessage {
                 Text(status)
@@ -378,8 +384,8 @@ struct ClipboardHistoryView: View {
         }
         .foregroundStyle(Color.white.opacity(0.72))
         .padding(.horizontal, 16)
-        .frame(height: 48)
-        .background(.white.opacity(0.025))
+        .frame(height: 40)
+        .background(JutilitiesTheme.surface)
     }
 
     private var actionsPopover: some View {
@@ -507,10 +513,10 @@ private struct ClipboardHistoryRow: View {
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: 11) {
+            HStack(spacing: 10) {
                 rowIcon
-                    .frame(width: 35, height: 35)
-                VStack(alignment: .leading, spacing: 4) {
+                    .frame(width: 28, height: 28)
+                VStack(alignment: .leading, spacing: 3) {
                     Text(entry.title.replacingOccurrences(of: "\n", with: " "))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Color.white.opacity(isSelected ? 0.95 : 0.8))
@@ -528,8 +534,8 @@ private struct ClipboardHistoryRow: View {
                         .foregroundStyle(JutilitiesTheme.muted)
                 }
             }
-            .padding(.horizontal, 11)
-            .padding(.vertical, 9)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .background(isSelected ? JutilitiesTheme.selection : (isHovered ? .white.opacity(0.035) : .clear), in: RoundedRectangle(cornerRadius: 7))
@@ -548,14 +554,14 @@ private struct ClipboardHistoryRow: View {
             Image(nsImage: image)
                 .resizable()
                 .scaledToFill()
-                .frame(width: 35, height: 35)
+                .frame(width: 28, height: 28)
                 .clipShape(RoundedRectangle(cornerRadius: 5))
                 .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(.white.opacity(0.09)))
         } else {
             Image(systemName: kindSymbol(entry.kind))
-                .font(.system(size: 17, weight: .regular))
+                .font(.system(size: 14, weight: .regular))
                 .foregroundStyle(entry.kind == .link ? JutilitiesTheme.accent.opacity(0.8) : Color.white.opacity(0.56))
-                .frame(width: 35, height: 35)
+                .frame(width: 28, height: 28)
                 .background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 6))
         }
     }
