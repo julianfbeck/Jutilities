@@ -7,7 +7,7 @@ Jutilities is a native macOS 15+ menu-bar app. Keep app UI and operating-system 
 - Use XcodeBuildMCP tools or its CLI for macOS builds and tests. Do not invoke raw `xcodebuild`, `xcrun` or `simctl`.
 - The supported CLI version is 2.7.0. Edit the canonical `project.yml` and generate the untracked Xcode project with `xcodegen generate --spec project.yml`.
 - Run `xcodebuildmcp swift-package test --package-path "$PWD"` for core changes. Run `xcodebuildmcp macos test --project-path "$PWD/Jutilities.xcodeproj" --scheme Jutilities --derived-data-path "$PWD/build/TestDerivedData"` for app integration and native tests.
-- Build the Release app with `./scripts/build.sh`. Use `--preview` to inspect fixture UI without capturing real clipboard content or changing power settings.
+- Build the Release app with the XcodeBuildMCP command documented in README.md. Use `--preview` to inspect fixture UI without capturing real clipboard content or changing power settings.
 - Do not test real sleep, screen locking or administrator/account-password operations automatically. Test pure command plans, parsing and timing with fixtures. Never inspect the developer's real clipboard history for a test or screenshot.
 
 ## Data and permissions
@@ -25,3 +25,5 @@ Jutilities is a native macOS 15+ menu-bar app. Keep app UI and operating-system 
 ## Contributions
 
 Keep changes focused and use SwiftUI/AppKit rather than a web wrapper. Do not add network access, telemetry, third-party dependencies, cloud sync or a privileged background helper without an explicit product requirement. Document visible behavior changes and the checks actually run.
+
+Keep `scripts/` local and ignored. Do not commit personal setup or deployment helpers, machine-specific paths, credentials, or developer-generated artifacts. Public build and test instructions and CI must work from a fresh clone without local scripts.

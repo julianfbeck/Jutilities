@@ -17,12 +17,18 @@ brew install xcodegen node
 npm install -g xcodebuildmcp@2.7.0
 git clone https://github.com/julianfbeck/Jutilities.git
 cd Jutilities
-./scripts/build.sh
-./scripts/install.sh
-open "$HOME/Applications/Jutilities.app"
+xcodegen generate --spec project.yml
+xcodebuildmcp macos build \
+  --project-path "$PWD/Jutilities.xcodeproj" \
+  --scheme Jutilities \
+  --configuration Release \
+  --derived-data-path "$PWD/build/DerivedData"
+codesign --verify --deep --strict build/DerivedData/Build/Products/Release/Jutilities.app
 ```
 
-The build script regenerates `Jutilities.xcodeproj` from `project.yml`, builds Release through XcodeBuildMCP and verifies the app's signature. The install script defaults to `~/Applications`; pass `/Applications` as its first argument to choose that location. Quit Jutilities before replacing an installed version. The installer keeps the previous app bundle as a backup and does not remove your clipboard data.
+The commands generate `Jutilities.xcodeproj` from `project.yml`, build Release through XcodeBuildMCP and verify the app's signature. In Finder, open `build/DerivedData/Build/Products/Release` and copy **Jutilities.app** into your Applications folder, then open it. Quit Jutilities before replacing an installed version; keep the previous app bundle if you want a rollback copy. Replacing the app bundle preserves clipboard data stored separately in Application Support.
+
+The examples below assume the app is installed in `~/Applications`. If you use `/Applications`, adjust the path accordingly. The public repository builds without any local setup or deployment scripts.
 
 To inspect the interface without capturing the clipboard or changing power settings:
 
@@ -116,7 +122,7 @@ Swift Package tests cover the storage and power planning code. The Xcode scheme 
 
 The generated Xcode project is not tracked. Edit `project.yml` and regenerate it with XcodeGen. See [AGENTS.md](AGENTS.md) for contribution constraints.
 
-The app icon's editable source is [Config/AppIcon.svg](Config/AppIcon.svg), designed with Claude Opus 5.5 ([PNG preview](docs/icon.png)). To regenerate the bundled macOS icon, install `librsvg` and run `./scripts/generate-icon.sh`. The generated `Config/AppIcon.icns` is committed, so normal builds do not need the SVG renderer.
+The app icon's editable source is [Config/AppIcon.svg](Config/AppIcon.svg), designed with Claude Opus 5.5 ([PNG preview](docs/icon.png)). To regenerate the bundled macOS icon, render the SVG into a standard macOS `.iconset` at 16, 32, 128, 256 and 512 points with both 1× and 2× resolutions, then convert it using `iconutil --convert icns`. The generated `Config/AppIcon.icns` is committed, so normal builds do not need an SVG renderer.
 
 ## License
 

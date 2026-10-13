@@ -32,4 +32,13 @@ jobs:
           --scheme Jutilities
           --derived-data-path "$GITHUB_WORKSPACE/build/TestDerivedData"
       - name: Build Release app
-        run: ./scripts/build.sh
+        run: |
+          xcodebuildmcp macos build \
+            --project-path "$GITHUB_WORKSPACE/Jutilities.xcodeproj" \
+            --scheme Jutilities \
+            --configuration Release \
+            --derived-data-path "$GITHUB_WORKSPACE/build/DerivedData"
+          app_path="$GITHUB_WORKSPACE/build/DerivedData/Build/Products/Release/Jutilities.app"
+          test -x "$app_path/Contents/MacOS/Jutilities"
+          codesign --verify --deep --strict "$app_path"
+          "$app_path/Contents/MacOS/Jutilities" --version
