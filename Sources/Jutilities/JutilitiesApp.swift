@@ -33,6 +33,22 @@ struct JutilitiesApp {
                         try data.write(to: directory.appendingPathComponent(name))
                     }
                 }
+                for active in [false, true] {
+                    for scale in [1, 2] {
+                        let size = CGFloat(18 * scale)
+                        let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
+                            NSColor.white.setFill()
+                            rect.fill()
+                            BrandIcon.menuBarImage(keepingAwake: active).draw(in: rect)
+                            return true
+                        }
+                        guard let tiff = image.tiffRepresentation,
+                              let bitmap = NSBitmapImageRep(data: tiff),
+                              let data = bitmap.representation(using: .png, properties: [:]) else { continue }
+                        let name = "menubar_\(active ? "awake" : "idle")_preview\(scale == 2 ? "@2x" : "").png"
+                        try data.write(to: directory.appendingPathComponent(name))
+                    }
+                }
             } catch { fputs("Icon export failed.\n", stderr) }
             return
         }

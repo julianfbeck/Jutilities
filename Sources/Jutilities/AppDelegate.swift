@@ -116,17 +116,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func installMenuBar() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.title = " JU"
-        item.button?.image = NSImage(systemSymbolName: "square.stack", accessibilityDescription: "Jutilities")
-        item.button?.imagePosition = .imageLeading
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.button?.title = ""
+        item.button?.imagePosition = .imageOnly
         item.button?.target = self
         item.button?.action = #selector(togglePopover)
         item.button?.toolTip = "Jutilities · Clipboard and power controls"
         statusItem = item
         power.$isKeepingAwake.sink { [weak self] active in
-            self?.statusItem?.button?.image = NSImage(systemSymbolName: active ? "sun.max.fill" : "square.stack",
-                                                      accessibilityDescription: "Jutilities")
+            guard let button = self?.statusItem?.button else { return }
+            button.image = BrandIcon.menuBarImage(keepingAwake: active)
+            let description = "Jutilities · Clipboard and power controls · Keep awake \(active ? "on" : "off")"
+            button.toolTip = description
+            button.setAccessibilityLabel(description)
         }.store(in: &subscriptions)
     }
 
