@@ -5,7 +5,8 @@ enum JutilitiesLayout {
     static let clipboardSize = NSSize(width: 760, height: 500)
     static let clipboardMinimumSize = NSSize(width: 700, height: 440)
     static let historyWidth: CGFloat = 292
-    static let menuSize = NSSize(width: 350, height: 520)
+    static let menuWidth: CGFloat = 350
+    static let menuMaximumHeight: CGFloat = 640
     static let cornerRadius: CGFloat = 12
 }
 

@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var panel: NSPanel?
     private var previewMenuPanel: NSPanel?
     private var popover: NSPopover?
+    private var menuResize: DispatchWorkItem?
     private var maintenanceTimer: Timer?
     private var previousApplication: NSRunningApplication?
     private var searchGeneration = 0
@@ -143,7 +144,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             previousApplication = front
         }
         if !power.hasPendingChanges { power.refreshSettings() }
+        let popup = NSPopover()
+        let screen = button.window?.screen ?? NSScreen.main
+        let maximumHeight = min(JutilitiesLayout.menuMaximumHeight,
+                                max(0, (screen?.visibleFrame.height ?? JutilitiesLayout.menuMaximumHeight) - 24))
         let view = UtilityMenuView(model: model, power: power, menuState: menuState, isPreview: isPreview,
+                                   maximumHeight: maximumHeight,
+                                   resize: { [weak self, weak popup] size in
+                                       guard let popup else { return }
+                                       self?.resizeUtilityMenu(popup, to: size)
+                                   },
                                    openClipboard: { [weak self] in self?.showClipboard() },
                                    restoreBackup: { [weak self] in self?.restoreBackup() },
                                    openStorage: { [weak self] in
@@ -153,15 +163,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                                    },
                                    dismiss: { [weak self] in self?.dismissUtilityMenu() },
                                    quit: { NSApp.terminate(nil) })
-        let popup = NSPopover()
         popup.appearance = NSAppearance(named: .darkAqua)
         popup.behavior = .transient
         popup.contentViewController = NSHostingController(rootView: view)
-        popup.contentSize = JutilitiesLayout.menuSize
+        let initialSize = NSSize(width: JutilitiesLayout.menuWidth, height: min(440, maximumHeight))
+        popup.contentSize = initialSize
+        menuResize?.cancel()
+        popover = popup
         if CommandLine.arguments.contains("--preview-menu") {
             // Preview the same menu content in a regular window so it remains
             // inspectable when this fixture app is not the active menu-bar owner.
-            let window = LauncherPanel(contentRect: NSRect(origin: .zero, size: JutilitiesLayout.menuSize),
+            let window = LauncherPanel(contentRect: NSRect(origin: .zero, size: initialSize),
                                        styleMask: [.titled, .closable], backing: .buffered, defer: false)
             window.title = "Jutilities — Utilities Preview"
             window.appearance = NSAppearance(named: .darkAqua)
@@ -175,10 +187,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             NSApp.activate(ignoringOtherApps: true)
             return
         }
-        popover = popup
         popup.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popup.contentViewController?.view.window?.makeKey()
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func resizeUtilityMenu(_ popup: NSPopover, to size: CGSize) {
+        guard size.width.isFinite, size.height.isFinite, size.width > 0, size.height > 0 else { return }
+        let size = NSSize(width: ceil(size.width), height: ceil(size.height))
+        menuResize?.cancel()
+        // Defer AppKit changes until SwiftUI finishes layout and coalesce its measurements.
+        let work = DispatchWorkItem { [weak self, weak popup] in
+            guard let self, let popup, self.popover === popup else { return }
+            if let window = self.previewMenuPanel,
+               window.contentViewController === popup.contentViewController {
+                guard window.contentLayoutRect.size != size else { return }
+                var frame = window.frameRect(forContentRect: NSRect(origin: .zero, size: size))
+                frame.origin = NSPoint(x: window.frame.minX, y: window.frame.maxY - frame.height)
+                if let screen = window.screen { frame.origin.y = max(frame.origin.y, screen.visibleFrame.minY) }
+                window.setFrame(frame, display: true)
+            } else if popup.contentSize != size {
+                popup.contentSize = size
+            }
+        }
+        menuResize = work
+        DispatchQueue.main.async(execute: work)
     }
 
     private func dismissUtilityMenu() {

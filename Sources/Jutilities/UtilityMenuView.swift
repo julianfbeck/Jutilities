@@ -23,6 +23,8 @@ struct UtilityMenuView: View {
     @ObservedObject var power: PowerManager
     @ObservedObject var menuState: UtilityMenuState
     let isPreview: Bool
+    let maximumHeight: CGFloat
+    let resize: (CGSize) -> Void
     let openClipboard: () -> Void
     let restoreBackup: () -> Void
     let openStorage: () -> Void
@@ -30,49 +32,17 @@ struct UtilityMenuView: View {
     let quit: () -> Void
     @State private var loginError: String?
     @State private var launchesAtLogin = SMAppService.mainApp.status == .enabled
+    @State private var sectionHeights: [UtilityMenuSection: CGFloat] = [:]
+    @State private var topHeight: CGFloat = 0
+    @State private var bottomHeight: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            UtilityMenuAction(title: "Open clipboard history", symbol: "doc.on.clipboard",
-                              shortcut: "⌥V", prominent: true, action: openClipboard)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 14)
-            Picker("Menu section", selection: $menuState.section) {
-                ForEach(UtilityMenuSection.allCases) { section in
-                    Text(section.rawValue).tag(section)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .help("Switch sections with ⌘1, ⌘2 or ⌘3")
-            .padding(.horizontal, 14)
-            .padding(.bottom, 12)
-            separator
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    if let loginError { notice(loginError, isError: true) }
-                    switch menuState.section {
-                    case .clipboard: clipboardSection
-                    case .keepAwake:
-                        card {
-                            PowerMenuView(manager: power, durationMinutes: $menuState.durationMinutes,
-                                          display: $menuState.display)
-                                .padding(12)
-                        }
-                    case .sleepAndLock: PowerSettingsView(manager: power)
-                    }
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-            }
-            .id(menuState.section)
-            separator
-            if menuState.section == .sleepAndLock {
-                applyBar
-                separator
-            }
-            footer
+            navigation
+                .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { topHeight = ceil($0) }
+            sectionBody
+            bottomBar
+                .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { bottomHeight = ceil($0) }
         }
         .font(.system(size: 12))
         .controlSize(.small)
@@ -84,7 +54,71 @@ struct UtilityMenuView: View {
                 .frame(width: 0, height: 0)
         }
         .onChange(of: power.keepDisplayAwake) { _, display in menuState.display = display }
-        .frame(width: JutilitiesLayout.menuSize.width, height: JutilitiesLayout.menuSize.height)
+        .frame(width: JutilitiesLayout.menuWidth)
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGSize.self, of: { $0.size }, action: resize)
+    }
+
+    private var navigation: some View {
+        VStack(spacing: 0) {
+            header
+            UtilityMenuAction(title: "Open clipboard history", symbol: "doc.on.clipboard",
+                              shortcut: "⌥V", prominent: true, action: openClipboard)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 10)
+            Picker("Menu section", selection: $menuState.section) {
+                ForEach(UtilityMenuSection.allCases) { section in
+                    Text(section.rawValue).tag(section)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .help("Switch sections with ⌘1, ⌘2 or ⌘3")
+            .padding(.horizontal, 12)
+            .padding(.bottom, 10)
+            separator
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var sectionBody: some View {
+        let section = menuState.section
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if let loginError { notice(loginError, isError: true) }
+                switch section {
+                case .clipboard: clipboardSection
+                case .keepAwake:
+                    card {
+                        PowerMenuView(manager: power, durationMinutes: $menuState.durationMinutes,
+                                      display: $menuState.display)
+                            .padding(10)
+                    }
+                case .sleepAndLock: PowerSettingsView(manager: power)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .fixedSize(horizontal: false, vertical: true)
+            // Measure the unconstrained content, not the scrolling viewport.
+            .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) {
+                sectionHeights[section] = ceil($0)
+            }
+        }
+        .frame(height: min(sectionHeights[section] ?? 0, max(0, maximumHeight - topHeight - bottomHeight)))
+        .id(section)
+    }
+
+    private var bottomBar: some View {
+        VStack(spacing: 0) {
+            separator
+            if menuState.section == .sleepAndLock {
+                applyBar
+                separator
+            }
+            footer
+        }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var header: some View {
@@ -115,12 +149,12 @@ struct UtilityMenuView: View {
             .help("App settings")
             .accessibilityLabel("App settings")
         }
-        .padding(.horizontal, 14)
-        .frame(height: 54)
+        .padding(.horizontal, 12)
+        .frame(height: 46)
     }
 
     private var clipboardSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             card {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
@@ -146,7 +180,7 @@ struct UtilityMenuView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(JutilitiesTheme.muted)
                 }
-                .padding(12)
+                .padding(10)
             }
 
             VStack(alignment: .leading, spacing: 7) {
@@ -196,8 +230,8 @@ struct UtilityMenuView: View {
         }
         .font(.system(size: 11))
         .foregroundStyle(JutilitiesTheme.muted)
-        .padding(.horizontal, 14)
-        .frame(height: 36)
+        .padding(.horizontal, 12)
+        .frame(height: 32)
     }
 
     private var applyBar: some View {
@@ -211,8 +245,8 @@ struct UtilityMenuView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(!power.hasPendingChanges || power.isApplying)
         }
-        .padding(.horizontal, 14)
-        .frame(height: 44)
+        .padding(.horizontal, 12)
+        .frame(height: 40)
     }
 
     private func card<Content: View>(@ViewBuilder content: () -> Content) -> some View {
@@ -291,7 +325,7 @@ private struct UtilityMenuAction: View {
                 }
             }
             .padding(.horizontal, 12)
-            .frame(maxWidth: .infinity, minHeight: prominent ? 46 : 38)
+            .frame(maxWidth: .infinity, minHeight: prominent ? 40 : 36)
             .contentShape(Rectangle())
             .background(.white.opacity(isHovered ? 0.08 : prominent ? 0.05 : 0),
                         in: RoundedRectangle(cornerRadius: prominent ? 9 : 7))
