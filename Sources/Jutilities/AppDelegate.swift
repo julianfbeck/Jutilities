@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let airDrop = ClipboardAirDrop()
     private let dataQueue = DispatchQueue(label: "sh.juli.Jutilities.storage", qos: .userInitiated)
     private var store: ClipboardStore?
+    private var imageTextIndexer: ImageTextIndexer?
     private var statusItem: NSStatusItem?
     private var panel: NSPanel?
     private var previewMenuPanel: NSPanel?
@@ -47,6 +48,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             backupURL = directory.appendingPathComponent("Backups/clipboard-backup.sqlite")
             store = try ClipboardStore(databaseURL: directory.appendingPathComponent("clipboard.sqlite"))
             if isPreview { try seedPreview() }
+            if let store {
+                let indexer = ImageTextIndexer(store: store, storageQueue: dataQueue)
+                indexer.onChange = { [weak self] in
+                    self?.updateImageRecognitionState()
+                    self?.reload()
+                }
+                imageTextIndexer = indexer
+                indexer.start()
+            }
             reload()
             if !isPreview {
                 if CommandLine.arguments.contains("--enable-login") {
@@ -80,6 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        imageTextIndexer?.invalidate()
         monitor.stop()
         hotKey.unregister()
         maintenanceTimer?.invalidate()
@@ -97,10 +108,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func wireCallbacks() {
         model.onSearch = { [weak self] _, _ in self?.reload() }
-        model.onSelection = { [weak self] entry in self?.loadPreview(entry) }
+        model.onSelection = { [weak self] entry in
+            self?.updateImageRecognitionState()
+            self?.loadPreview(entry)
+        }
         model.onDismiss = { [weak self] in self?.panel?.orderOut(nil) }
         model.onCopy = { [weak self] entry, autoPaste in self?.copy(entry, autoPaste: autoPaste) }
         model.onAirDrop = { [weak self] entry in self?.shareViaAirDrop(entry) }
+        model.onCopyRecognizedText = { [weak self] entry in self?.copyRecognizedText(entry) }
+        model.onRetryImageRecognition = { [weak self] in
+            guard let self, let id = self.model.selectedID else { return }
+            self.imageTextIndexer?.retry(id: id)
+        }
         model.onPin = { [weak self] entry in
             self?.mutate { try $0.setPinned(id: entry.id, pinned: !entry.isPinned) }
         }
@@ -113,7 +132,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             dataQueue.async { [weak self] in
                 do {
                     _ = try store.insert(capture)
-                    Task { @MainActor [weak self] in self?.reload() }
+                    Task { @MainActor [weak self] in
+                        self?.reload()
+                        self?.imageTextIndexer?.start()
+                    }
                 } catch { Task { @MainActor [weak self] in self?.model.errorMessage = error.localizedDescription } }
             }
         }
@@ -267,9 +289,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 Task { @MainActor [weak self] in
                     guard let self, self.searchGeneration == generation else { return }
                     self.model.entries = entries
+                    self.updateImageRecognitionState()
                 }
             } catch { Task { @MainActor [weak self] in self?.model.errorMessage = error.localizedDescription } }
         }
+    }
+
+    private func updateImageRecognitionState() {
+        guard let entry = model.selectedEntry, entry.kind == .image else {
+            model.isRecognizingImage = false
+            model.imageRecognitionError = nil
+            return
+        }
+        model.imageRecognitionError = imageTextIndexer?.error(for: entry.id)
+        model.isRecognizingImage = entry.recognizedText == nil && model.imageRecognitionError == nil
     }
 
     private func loadPreview(_ entry: ClipboardEntry?) {
@@ -353,6 +386,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
+    private func copyRecognizedText(_ entry: ClipboardEntry) {
+        guard let store else { return }
+        if isPreview { model.statusMessage = "Preview mode: the clipboard is unchanged."; return }
+        pasteGeneration += 1
+        let generation = pasteGeneration
+        dataQueue.async { [weak self] in
+            do {
+                guard let text = try store.recognizedText(for: entry.id), !text.isEmpty else { return }
+                Task { @MainActor [weak self] in
+                    guard let self, self.pasteGeneration == generation else { return }
+                    let board = NSPasteboard.general
+                    board.clearContents()
+                    guard board.setString(text, forType: .string) else {
+                        self.model.errorMessage = "Could not copy recognized text."
+                        return
+                    }
+                    self.monitor.markOwnWrite()
+                    self.mutate { try $0.recordCopy(id: entry.id) }
+                    self.model.statusMessage = "Recognized text copied"
+                }
+            } catch {
+                Task { @MainActor [weak self] in self?.model.errorMessage = "Could not read recognized text. Try again." }
+            }
+        }
+    }
+
     private func showAccessibilityHelp() {
         let alert = NSAlert()
         alert.messageText = "Set up Jutilities automatic paste"
@@ -412,15 +471,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
-    private func mutate(_ operation: @escaping (ClipboardStore) throws -> Void) {
+    private func mutate(completion: (() -> Void)? = nil, _ operation: @escaping (ClipboardStore) throws -> Void) {
         guard let store else { return }
         let backup = backupURL
         dataQueue.async { [weak self] in
             do {
                 try operation(store)
                 if let backup { try store.backup(to: backup) }
-                Task { @MainActor [weak self] in self?.reload() }
-            } catch { Task { @MainActor [weak self] in self?.model.errorMessage = error.localizedDescription } }
+                Task { @MainActor [weak self] in
+                    self?.reload()
+                    completion?()
+                }
+            } catch {
+                Task { @MainActor [weak self] in
+                    self?.model.errorMessage = error.localizedDescription
+                    completion?()
+                }
+            }
         }
     }
 
@@ -468,7 +535,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         alert.addButton(withTitle: "Restore Backup")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        mutate { try $0.restore(from: source) }
+        imageTextIndexer?.invalidate()
+        mutate(completion: { [weak self] in self?.imageTextIndexer?.start() }) { try $0.restore(from: source) }
     }
 
     private func seedPreview() throws {
@@ -493,6 +561,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 sourceApp: "Preview", sourceBundleID: nil,
                 representations: [ClipboardRepresentation(type: NSPasteboard.PasteboardType.png.rawValue, data: png)],
                 thumbnail: png, imageWidth: 640, imageHeight: 640), now: Date().addingTimeInterval(-300))
+        }
+        let textImage = NSImage(size: NSSize(width: 640, height: 360))
+        textImage.lockFocus()
+        NSColor.white.setFill()
+        NSRect(x: 0, y: 0, width: 640, height: 360).fill()
+        ("Jutilities\nImage text is searchable\nGrüße aus Berlin" as NSString).draw(
+            in: NSRect(x: 36, y: 50, width: 568, height: 250),
+            withAttributes: [.font: NSFont.systemFont(ofSize: 32, weight: .medium), .foregroundColor: NSColor.black])
+        textImage.unlockFocus()
+        if let data = textImage.tiffRepresentation,
+           let bitmap = NSBitmapImageRep(data: data), let png = bitmap.representation(using: .png, properties: [:]) {
+            _ = try store.insert(ClipboardCapture(kind: .image, title: "Screenshot · 640 × 360", text: nil,
+                sourceApp: "Preview", sourceBundleID: nil,
+                representations: [ClipboardRepresentation(type: NSPasteboard.PasteboardType.png.rawValue, data: png)],
+                thumbnail: png, imageWidth: 640, imageHeight: 360), now: Date().addingTimeInterval(-180))
         }
     }
 }

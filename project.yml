@@ -67,6 +67,8 @@ targets:
       - Sources/Jutilities/PasteboardMonitor.swift
       - Sources/Jutilities/PowerManager.swift
       - Sources/Jutilities/ClipboardAirDrop.swift
+      - Sources/Jutilities/ImageTextRecognition.swift
+      - Sources/Jutilities/ImageTextIndexer.swift
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES

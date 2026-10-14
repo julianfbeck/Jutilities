@@ -6,6 +6,7 @@ struct ClipboardHistoryView: View {
     @ObservedObject var model: ClipboardViewModel
     @FocusState private var isSearchFocused: Bool
     @State private var showsActions = false
+    @State private var actionNavigation = ClipboardActionNavigation()
     @State private var showsClearConfirmation = false
 
     var body: some View {
@@ -41,6 +42,17 @@ struct ClipboardHistoryView: View {
                 .frame(width: 0, height: 0)
         }
         .onAppear { isSearchFocused = true }
+        .onChange(of: showsActions) { _, isPresented in
+            if isPresented {
+                isSearchFocused = false
+                actionNavigation.selectFirst(in: enabledActions)
+            } else {
+                isSearchFocused = true
+            }
+        }
+        .onChange(of: enabledActions) { _, actions in
+            actionNavigation.reconcile(with: actions)
+        }
         .confirmationDialog("Clear clipboard history?", isPresented: $showsClearConfirmation) {
             Button("Clear History", role: .destructive) { model.onClear() }
             Button("Cancel", role: .cancel) {}
@@ -286,23 +298,80 @@ struct ClipboardHistoryView: View {
 
     @ViewBuilder
     private func imagePreview(_ entry: ClipboardEntry) -> some View {
-        if let image = model.selectedImage ?? entry.thumbnail.flatMap(NSImage.init(data:)) {
-            Image(nsImage: image)
-                .resizable()
-                .scaledToFit()
-                .padding(.horizontal, 20)
-                .padding(.bottom, 18)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .accessibilityLabel("Preview of \(entry.title)")
-        } else {
-            VStack(spacing: 10) {
-                ProgressView().controlSize(.small)
-                Text("Loading image…")
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if let image = model.selectedImage ?? entry.thumbnail.flatMap(NSImage.init(data:)) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity)
+                        .accessibilityLabel("Preview of \(entry.title)")
+                } else {
+                    HStack(spacing: 10) {
+                        ProgressView().controlSize(.small)
+                        Text("Loading image…")
+                            .font(.system(size: 12))
+                            .foregroundStyle(JutilitiesTheme.muted)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 100)
+                }
+                imageText(entry)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 18)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func imageText(_ entry: ClipboardEntry) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 7) {
+                Image(systemName: "text.viewfinder")
+                Text("Text in image")
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+                if let text = entry.recognizedText, !text.isEmpty {
+                    Button { model.copyRecognizedText() } label: {
+                        Label("Copy Text", systemImage: "doc.on.doc")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(JutilitiesTheme.accent)
+                    .help("Copy recognized text instead of the image")
+                }
+            }
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(JutilitiesTheme.muted)
+
+            if let text = entry.recognizedText, !text.isEmpty {
+                Text(text)
                     .font(.system(size: 12))
+                    .lineSpacing(3)
+                    .foregroundStyle(Color.white.opacity(0.85))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else if let error = model.imageRecognitionError {
+                Text(error)
+                    .font(.system(size: 11))
+                    .foregroundStyle(JutilitiesTheme.muted)
+                Button("Try Again") { model.onRetryImageRecognition() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(JutilitiesTheme.accent)
+            } else if model.isRecognizingImage || entry.recognizedText == nil {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.mini)
+                    Text("Recognizing text on your Mac…")
+                        .font(.system(size: 11))
+                        .foregroundStyle(JutilitiesTheme.muted)
+                }
+            } else {
+                Text("No text found in this image.")
+                    .font(.system(size: 11))
                     .foregroundStyle(JutilitiesTheme.muted)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .padding(12)
+        .background(.white.opacity(0.025), in: RoundedRectangle(cornerRadius: 7))
     }
 
     private func metadata(_ entry: ClipboardEntry) -> some View {
@@ -376,7 +445,7 @@ struct ClipboardHistoryView: View {
 
             Divider().frame(height: 17).padding(.horizontal, 7)
 
-            Button { showsActions.toggle() } label: {
+            Button { toggleActions() } label: {
                 HStack(spacing: 7) {
                     Text("Actions")
                         .font(.system(size: 11, weight: .medium))
@@ -402,38 +471,128 @@ struct ClipboardHistoryView: View {
                 .padding(.horizontal, 10)
                 .padding(.top, 8)
                 .padding(.bottom, 6)
-            action("Paste", symbol: "doc.on.clipboard", shortcut: "↵", enabled: model.selectedEntry != nil) {
-                model.copySelection(autoPaste: true)
+            action(.paste, title: "Paste", symbol: "doc.on.clipboard", shortcut: "↵")
+            action(.copy, title: "Copy", symbol: "doc.on.doc", shortcut: "⌘ ↵")
+            if model.selectedEntry?.kind == .image {
+                action(.copyText, title: "Copy Text", symbol: "text.viewfinder")
             }
-            action("Copy", symbol: "doc.on.doc", shortcut: "⌘ ↵", enabled: model.selectedEntry != nil) {
-                model.copySelection(autoPaste: false)
-            }
-            action("AirDrop…", symbol: "airdrop", enabled: model.selectedEntry != nil && !model.isSharingViaAirDrop) {
-                model.airDropSelection()
-            }
-            action(model.selectedEntry?.isPinned == true ? "Unpin Item" : "Pin Item", symbol: "pin", shortcut: "⌘ P", enabled: model.selectedEntry != nil) {
-                model.pinSelection()
-            }
-            action("Delete Item", symbol: "trash", shortcut: "⌘ ⌫", enabled: model.selectedEntry != nil) {
-                model.deleteSelection()
-            }
+            action(.airDrop, title: "AirDrop…", symbol: "airdrop")
+            action(.pin, title: model.selectedEntry?.isPinned == true ? "Unpin Item" : "Pin Item", symbol: "pin", shortcut: "⌘ P")
+            action(.delete, title: "Delete Item", symbol: "trash", shortcut: "⌘ ⌫")
             Divider().padding(.vertical, 5)
-            action(model.isPaused ? "Resume Capture" : "Pause Capture", symbol: model.isPaused ? "play.circle" : "pause.circle") {
-                model.togglePause()
-            }
-            action("Back Up History…", symbol: "externaldrive") { model.onBackup() }
-            action("Clear History…", symbol: "trash") { showsClearConfirmation = true }
+            action(.toggleCapture, title: model.isPaused ? "Resume Capture" : "Pause Capture", symbol: model.isPaused ? "play.circle" : "pause.circle")
+            action(.backup, title: "Back Up History…", symbol: "externaldrive")
+            action(.clear, title: "Clear History…", symbol: "trash")
+            Divider().padding(.vertical, 5)
+            Text("↑↓ Navigate   ↵ Select   esc Close")
+                .font(.system(size: 10))
+                .foregroundStyle(JutilitiesTheme.muted)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.bottom, 5)
         }
         .padding(6)
         .frame(width: 260)
         .preferredColorScheme(.dark)
+        .background {
+            // SwiftUI presents this popover in a separate window. Its monitor
+            // must live here too, rather than relying on the history window.
+            ClipboardKeyboardMonitor { event in handleActionsKey(event) }
+                .frame(width: 0, height: 0)
+        }
     }
 
-    private func action(_ title: String, symbol: String, shortcut: String? = nil, enabled: Bool = true, perform: @escaping () -> Void) -> some View {
-        ClipboardActionRow(title: title, symbol: symbol, shortcut: shortcut, isEnabled: enabled) {
-            showsActions = false
-            perform()
+    private func action(_ id: ClipboardActionID, title: String, symbol: String, shortcut: String? = nil) -> some View {
+        ClipboardActionRow(
+            title: title, symbol: symbol, shortcut: shortcut,
+            isEnabled: enabledActions.contains(id), isSelected: actionNavigation.selectedAction == id,
+            onHover: { actionNavigation.select(id, in: enabledActions) }
+        ) {
+            performAction(id)
         }
+    }
+
+    private var enabledActions: [ClipboardActionID] {
+        ClipboardActionID.allCases.filter { id in
+            switch id {
+            case .paste, .copy, .pin, .delete:
+                return model.selectedEntry != nil
+            case .copyText:
+                guard model.selectedEntry?.kind == .image,
+                      let text = model.selectedEntry?.recognizedText else { return false }
+                return !text.isEmpty
+            case .airDrop:
+                return model.selectedEntry != nil && !model.isSharingViaAirDrop
+            case .toggleCapture, .backup, .clear:
+                return true
+            }
+        }
+    }
+
+    private func toggleActions() {
+        if showsActions {
+            dismissActions()
+        } else {
+            actionNavigation.selectFirst(in: enabledActions)
+            isSearchFocused = false
+            showsActions = true
+        }
+    }
+
+    private func dismissActions() {
+        showsActions = false
+        isSearchFocused = true
+    }
+
+    private func performAction(_ id: ClipboardActionID) {
+        guard enabledActions.contains(id) else { return }
+        dismissActions()
+        switch id {
+        case .paste: model.copySelection(autoPaste: true)
+        case .copy: model.copySelection(autoPaste: false)
+        case .copyText: model.copyRecognizedText()
+        case .airDrop: model.airDropSelection()
+        case .pin: model.pinSelection()
+        case .delete: model.deleteSelection()
+        case .toggleCapture: model.togglePause()
+        case .backup: model.onBackup()
+        case .clear: showsClearConfirmation = true
+        }
+    }
+
+    private func handleActionsKey(_ event: NSEvent) -> Bool {
+        guard showsActions else { return false }
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            .subtracting([.capsLock, .numericPad, .function])
+        if event.keyCode == 48, modifiers.isEmpty || modifiers == .shift {
+            actionNavigation.move(modifiers == .shift ? -1 : 1, in: enabledActions)
+            return true
+        }
+        if modifiers.isEmpty {
+            switch event.keyCode {
+            case 125: actionNavigation.move(1, in: enabledActions)
+            case 126: actionNavigation.move(-1, in: enabledActions)
+            case 115: actionNavigation.selectFirst(in: enabledActions)
+            case 119: actionNavigation.selectLast(in: enabledActions)
+            case 36, 76, 49:
+                if let selectedAction = actionNavigation.selectedAction { performAction(selectedAction) }
+            case 53: dismissActions()
+            default: break
+            }
+            // A menu owns unmodified keys while open. They must not edit the
+            // history search field or paste the history selection underneath.
+            return true
+        }
+        if modifiers == .command {
+            switch event.keyCode {
+            case 40: dismissActions()
+            case 36, 76: performAction(.copy)
+            case 35: performAction(.pin)
+            case 51: performAction(.delete)
+            default: return false
+            }
+            return true
+        }
+        return false
     }
 
     private func errorBanner(_ error: String) -> some View {
@@ -467,6 +626,7 @@ struct ClipboardHistoryView: View {
     }
 
     private func handleKey(_ event: NSEvent) -> Bool {
+        if showsActions { return handleActionsKey(event) }
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             .subtracting([.capsLock, .numericPad, .function])
         if modifiers.isEmpty {
@@ -474,8 +634,7 @@ struct ClipboardHistoryView: View {
             case 125: model.moveSelection(1)
             case 126: model.moveSelection(-1)
             case 36, 76: model.copySelection(autoPaste: true)
-            case 53:
-                if showsActions { showsActions = false } else { model.onDismiss() }
+            case 53: model.onDismiss()
             default: return false
             }
             return true
@@ -484,7 +643,7 @@ struct ClipboardHistoryView: View {
         switch event.keyCode {
         case 36, 76: model.copySelection(autoPaste: false)
         case 35: model.pinSelection()
-        case 40: showsActions.toggle()
+        case 40: toggleActions()
         case 51: model.deleteSelection()
         default: return false
         }
@@ -497,8 +656,9 @@ private struct ClipboardActionRow: View {
     let symbol: String
     let shortcut: String?
     let isEnabled: Bool
+    let isSelected: Bool
+    let onHover: () -> Void
     let perform: () -> Void
-    @State private var isHovered = false
 
     var body: some View {
         Button(action: perform) {
@@ -514,13 +674,15 @@ private struct ClipboardActionRow: View {
             .padding(.horizontal, 10)
             .frame(maxWidth: .infinity, minHeight: 32)
             .contentShape(Rectangle())
-            .background(isEnabled && isHovered ? Color.white.opacity(0.07) : .clear,
+            .background(isEnabled && isSelected ? Color.white.opacity(0.09) : .clear,
                         in: RoundedRectangle(cornerRadius: 5))
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
         .opacity(isEnabled ? 1 : 0.4)
-        .onHover { isHovered = $0 }
+        .onHover { if $0 && isEnabled { onHover() } }
+        .accessibilityValue(isSelected ? "Selected" : "")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 }
 

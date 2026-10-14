@@ -16,6 +16,7 @@ import CSQLite
 public final class ClipboardStore: @unchecked Sendable {
     public static let retentionInterval: TimeInterval = 60 * 24 * 60 * 60
     public static let maximumCaptureBytes = 64 * 1_024 * 1_024
+    public static let maximumRecognizedTextBytes = 256 * 1_024
 
     public let databaseURL: URL
 
@@ -25,7 +26,11 @@ public final class ClipboardStore: @unchecked Sendable {
     private var supportsFullTextSecureDelete = false
     private static let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
-    public init(databaseURL: URL) throws {
+    public convenience init(databaseURL: URL) throws {
+        try self.init(databaseURL: databaseURL, schemaVersion: 2)
+    }
+
+    private init(databaseURL: URL, schemaVersion: Int) throws {
         guard databaseURL.isFileURL else { throw ClipboardStoreError.invalidLocation }
         self.databaseURL = databaseURL.standardizedFileURL
         try Self.prepareDirectory(self.databaseURL.deletingLastPathComponent())
@@ -45,7 +50,7 @@ public final class ClipboardStore: @unchecked Sendable {
             try execute("PRAGMA secure_delete = ON")
             try execute("PRAGMA journal_mode = WAL")
             try execute("PRAGMA synchronous = FULL")
-            try createSchema()
+            try createSchema(targetVersion: schemaVersion)
             _ = try purgeExpired()
             try secureFiles()
         } catch {
@@ -65,28 +70,30 @@ public final class ClipboardStore: @unchecked Sendable {
             let byteCount = try validate(capture, now: now)
             let digest = Self.digest(capture)
             let id = UUID().uuidString
-            let searchDocument = Self.normalize(
-                [capture.title, capture.text ?? "", capture.sourceApp, capture.sourceBundleID ?? ""]
-                    .joined(separator: "\n")
-            )
-
             var expiredCount = 0
             let storedID: String = try transaction {
                 expiredCount = try purgeExpiredUnlocked(now: now)
-                let existing = try prepare("SELECT id FROM entries WHERE digest = ?")
+                let existing = try prepare("SELECT id, recognized_text FROM entries WHERE digest = ?")
                 defer { sqlite3_finalize(existing) }
                 try bind(digest, at: 1, in: existing)
                 let existingResult = sqlite3_step(existing)
                 let existingID: String?
+                let recognizedText: String?
                 if existingResult == SQLITE_ROW {
                     existingID = string(existing, 0)
+                    recognizedText = optionalString(existing, 1)
                 } else if existingResult == SQLITE_DONE {
                     existingID = nil
+                    recognizedText = nil
                 } else {
                     throw databaseError()
                 }
 
                 let resolvedID = existingID ?? id
+                let searchDocument = Self.searchDocument(
+                    title: capture.title, text: capture.text, sourceApp: capture.sourceApp,
+                    sourceBundleID: capture.sourceBundleID, recognizedText: recognizedText
+                )
                 let statement = try prepare("""
                     INSERT INTO entries (
                         id, digest, kind, title, preview_text, source_app, source_bundle_id,
@@ -215,6 +222,73 @@ public final class ClipboardStore: @unchecked Sendable {
                 result.append(ClipboardRepresentation(type: string(statement, 0), data: data(statement, 1) ?? Data()))
             }
             return result
+        }
+    }
+
+    /// The most recently copied pending images, with a stable tie-breaker.
+    /// Failed IDs can be skipped for one recognition run without loading their
+    /// thumbnails or starving later work. Results are capped at 100 per request.
+    public func imagesNeedingRecognition(
+        limit: Int = 1,
+        excludingIDs: Set<String> = []
+    ) throws -> [ClipboardEntry] {
+        try synchronized {
+            guard limit > 0 else { return [] }
+            if try purgeExpiredUnlocked(now: Date()) > 0 { try scrubDeletedPages() }
+            let statement = try prepare("""
+                SELECT id FROM entries WHERE kind = 'image' AND recognized_text IS NULL
+                ORDER BY last_copied_at DESC, id ASC
+                """)
+            defer { sqlite3_finalize(statement) }
+            var result: [ClipboardEntry] = []
+            while result.count < min(limit, 100) {
+                let status = sqlite3_step(statement)
+                if status == SQLITE_DONE { break }
+                guard status == SQLITE_ROW else { throw databaseError() }
+                let id = string(statement, 0)
+                if !excludingIDs.contains(id), let image = try entry(id: id) {
+                    result.append(image)
+                }
+            }
+            return result
+        }
+    }
+
+    public func recognizedText(for id: String) throws -> String? {
+        try synchronized {
+            if try purgeExpiredUnlocked(now: Date()) > 0 { try scrubDeletedPages() }
+            guard let image = try entry(id: id), image.kind == .image else { return nil }
+            return image.recognizedText
+        }
+    }
+
+    /// Commit recognition and its search index together, without treating OCR
+    /// as another copy. A late result can never recreate deleted/expired data.
+    @discardableResult
+    public func setRecognizedText(_ text: String, for id: String) throws -> Bool {
+        try synchronized {
+            try Self.validateRecognizedText(text)
+            var expiredCount = 0
+            let updated: Bool = try transaction {
+                expiredCount = try purgeExpiredUnlocked(now: Date())
+                guard let image = try entry(id: id), image.kind == .image else { return false }
+                let statement = try prepare("""
+                    UPDATE entries SET recognized_text = ?, search_document = ?
+                    WHERE id = ? AND kind = 'image'
+                    """)
+                defer { sqlite3_finalize(statement) }
+                try bind(text, at: 1, in: statement)
+                try bind(Self.searchDocument(
+                    title: image.title, text: image.previewText, sourceApp: image.sourceApp,
+                    sourceBundleID: image.sourceBundleID, recognizedText: text
+                ), at: 2, in: statement)
+                try bind(id, at: 3, in: statement)
+                try finish(statement)
+                return sqlite3_changes(database) > 0
+            }
+            if expiredCount > 0 { try scrubDeletedPages() }
+            try secureFiles()
+            return updated
         }
     }
 
@@ -368,7 +442,10 @@ public final class ClipboardStore: @unchecked Sendable {
 
             let temporary = databaseURL.deletingLastPathComponent()
                 .appendingPathComponent(".clipboard-restore-\(UUID().uuidString).sqlite")
-            let stage = try ClipboardStore(databaseURL: temporary)
+            // Generate both exact supported shapes from trusted schema code.
+            // Imported legacy databases must pass validation before migration
+            // can run any write that might invoke an unexpected trigger.
+            let stage = try ClipboardStore(databaseURL: temporary, schemaVersion: 1)
             defer {
                 if let stageDatabase = stage.database {
                     sqlite3_close_v2(stageDatabase)
@@ -380,13 +457,15 @@ public final class ClipboardStore: @unchecked Sendable {
                     _ = (temporary.path + suffix).withCString { unlink($0) }
                 }
             }
-            let expectedSchema = try stage.schemaDefinitions()
+            let legacySchema = try stage.schemaDefinitions()
+            try stage.createSchema()
+            let currentSchema = try stage.schemaDefinitions()
             // The staging connection has no concurrent readers. SQLite backup
             // can replace it without carrying over its previous WAL state.
             try stage.execute("PRAGMA journal_mode = DELETE")
             try Self.transferDatabase(from: source, to: stage.database, phase: "staging")
             try stage.execute("PRAGMA journal_mode = WAL")
-            try stage.validateRestore(expectedSchema: expectedSchema)
+            try stage.validateRestore(expectedSchemas: [1: legacySchema, 2: currentSchema])
             try stage.createSchema()
             _ = try stage.purgeExpired(now: now)
             try Self.transferDatabase(from: stage.database, to: database, phase: "restore")
@@ -434,14 +513,13 @@ public final class ClipboardStore: @unchecked Sendable {
         }
     }
 
-    private func validateRestore(expectedSchema: [String: String]) throws {
+    private func validateRestore(expectedSchemas: [Int: [String: String]]) throws {
+        let version = try schemaVersion()
+        guard let expectedSchema = expectedSchemas[version] else {
+            throw ClipboardStoreError.database("The backup has an unsupported schema version.")
+        }
         guard try schemaDefinitions() == expectedSchema else {
             throw ClipboardStoreError.database("The selected file is not a compatible Jutilities backup.")
-        }
-        let version = try prepare("PRAGMA user_version")
-        defer { sqlite3_finalize(version) }
-        guard sqlite3_step(version) == SQLITE_ROW, sqlite3_column_int(version, 0) == 1 else {
-            throw ClipboardStoreError.database("The backup has an unsupported schema version.")
         }
         let integrity = try prepare("PRAGMA integrity_check")
         defer { sqlite3_finalize(integrity) }
@@ -485,6 +563,23 @@ public final class ClipboardStore: @unchecked Sendable {
         guard sqlite3_step(formats) == SQLITE_ROW, sqlite3_column_int64(formats, 0) == 0 else {
             throw ClipboardStoreError.database("The backup contains invalid clipboard formats.")
         }
+        if version >= 2 {
+            let recognition = try prepare("SELECT kind, recognized_text FROM entries WHERE recognized_text IS NOT NULL")
+            defer { sqlite3_finalize(recognition) }
+            while true {
+                let status = sqlite3_step(recognition)
+                if status == SQLITE_DONE { break }
+                guard status == SQLITE_ROW else { throw databaseError() }
+                guard string(recognition, 0) == ClipboardKind.image.rawValue,
+                      sqlite3_column_type(recognition, 1) == SQLITE_TEXT,
+                      sqlite3_column_bytes(recognition, 1) <= Self.maximumRecognizedTextBytes,
+                      let bytes = data(recognition, 1), let text = String(data: bytes, encoding: .utf8) else {
+                    throw ClipboardStoreError.database("The backup contains invalid recognized image text.")
+                }
+                do { try Self.validateRecognizedText(text) }
+                catch { throw ClipboardStoreError.database("The backup contains invalid recognized image text.") }
+            }
+        }
         if supportsFullTextSearch {
             try execute("INSERT INTO entries_search(entries_search) VALUES('integrity-check')")
         }
@@ -492,16 +587,21 @@ public final class ClipboardStore: @unchecked Sendable {
 
     private static let entryColumns = """
         id, kind, title, preview_text, source_app, source_bundle_id, created_at,
-        last_copied_at, is_pinned, thumbnail, image_width, image_height, byte_count
+        last_copied_at, is_pinned, thumbnail, image_width, image_height, byte_count, recognized_text
         """
 
-    private func createSchema() throws {
+    private func schemaVersion() throws -> Int {
         let versionStatement = try prepare("PRAGMA user_version")
         defer { sqlite3_finalize(versionStatement) }
         guard sqlite3_step(versionStatement) == SQLITE_ROW else { throw databaseError() }
-        let version = Int(sqlite3_column_int(versionStatement, 0))
-        guard version == 0 || version == 1 else { throw ClipboardStoreError.unsupportedSchema(version) }
-        try execute("""
+        return Int(sqlite3_column_int(versionStatement, 0))
+    }
+
+    private func createSchema(targetVersion: Int = 2) throws {
+        let version = try schemaVersion()
+        guard (0...targetVersion).contains(version) else { throw ClipboardStoreError.unsupportedSchema(version) }
+        try transaction {
+            try execute("""
             CREATE TABLE IF NOT EXISTS entries (
                 id TEXT PRIMARY KEY NOT NULL,
                 digest TEXT UNIQUE NOT NULL,
@@ -528,8 +628,12 @@ public final class ClipboardStore: @unchecked Sendable {
             );
             CREATE INDEX IF NOT EXISTS entries_recency ON entries(is_pinned DESC, last_copied_at DESC);
             CREATE INDEX IF NOT EXISTS entries_expiry ON entries(last_copied_at);
-            PRAGMA user_version = 1;
             """)
+            if version < 2, targetVersion >= 2 {
+                try execute("ALTER TABLE entries ADD COLUMN recognized_text TEXT")
+            }
+            try execute("PRAGMA user_version = \(targetVersion)")
+        }
         do {
             try execute("""
                 CREATE VIRTUAL TABLE IF NOT EXISTS entries_search
@@ -607,7 +711,8 @@ public final class ClipboardStore: @unchecked Sendable {
             lastCopiedAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 7)),
             isPinned: sqlite3_column_int(statement, 8) != 0, thumbnail: data(statement, 9),
             imageWidth: integer(statement, 10), imageHeight: integer(statement, 11),
-            byteCount: Int(sqlite3_column_int64(statement, 12))
+            byteCount: Int(sqlite3_column_int64(statement, 12)),
+            recognizedText: optionalString(statement, 13)
         )
     }
 
@@ -668,6 +773,19 @@ public final class ClipboardStore: @unchecked Sendable {
     private static func normalize(_ value: String) -> String {
         value.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: Locale(identifier: "en_US_POSIX"))
             .precomposedStringWithCanonicalMapping
+    }
+
+    private static func searchDocument(
+        title: String, text: String?, sourceApp: String,
+        sourceBundleID: String?, recognizedText: String?
+    ) -> String {
+        normalize([title, text ?? "", sourceApp, sourceBundleID ?? "", recognizedText ?? ""].joined(separator: "\n"))
+    }
+
+    private static func validateRecognizedText(_ text: String) throws {
+        guard text.utf8.count <= maximumRecognizedTextBytes, !text.contains("\0") else {
+            throw ClipboardStoreError.invalidCapture("Recognized image text is invalid or exceeds 256 KB.")
+        }
     }
 
     private static func escapeLike(_ value: String) -> String {

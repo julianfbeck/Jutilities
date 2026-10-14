@@ -49,7 +49,7 @@ Use `--preview-menu` instead of `--preview` to inspect the menu-bar controls in 
 | Return | Copy and paste into the previous app |
 | ⌘Return | Copy only |
 | ⌘P | Pin or unpin the selected item |
-| ⌘K | Open actions |
+| ⌘K | Open actions and select the first enabled action |
 | ⌘Delete | Delete the selected item |
 | Escape | Close actions or the clipboard panel |
 
@@ -59,7 +59,9 @@ The JU menu has three sections: **Clipboard**, **Keep awake**, and **Sleep & loc
 
 Both panels use a translucent native backdrop with a dark tint to keep the controls readable. macOS **Reduce Transparency** switches them to a solid background.
 
-Open **Actions** to choose an operation for the selected clipboard item. Enabled actions highlight when you hover, and the whole row is clickable.
+Open **Actions** to choose an operation for the selected clipboard item. **⌘K** moves selection into the menu: use **↑ / ↓** or **Tab / ⇧Tab** to navigate, **Return** or **Space** to run the highlighted action, and **Escape** or **⌘K** to close it and return to search. Enabled actions highlight when you hover, and the whole row is clickable.
+
+Images are recognized locally with Apple's [Vision text recognition](https://developer.apple.com/documentation/vision/recognizing-text-in-images). Recognition runs in the background for new and existing images, and supports German and English with automatic language detection. The image preview includes a selectable **Text in image** section and a **Copy Text** action. Search matches that text while keeping the result in Images. Normal Copy, Paste and AirDrop keep the original image formats. Failed recognition can be retried from the preview; images without detected text remain usable.
 
 Choose **Actions → AirDrop…**, or right-click an item and choose **AirDrop…**, to open macOS's native AirDrop picker. Select the nearby receiving device yourself. Web links are shared as links; text is sent as a `.txt` file, and images use the original stored PNG or TIFF at full resolution. Sharing leaves the system clipboard untouched. If only rich text is available, its original RTF or HTML is sent.
 
@@ -82,6 +84,8 @@ Check registration without opening a window with `Jutilities.app/Contents/MacOS/
 ## Clipboard storage and privacy
 
 History is local, unencrypted SQLite under `~/Library/Application Support/Jutilities`. The app restricts its data directory and database file permissions to your user. It does not upload clipboard history or provide cloud sync.
+
+Recognized image text is stored with its image and included in SQLite backups, search and the same 60-day deletion policy. Background recognition does not renew an image's expiry; explicitly copying its text does. Existing databases and version-1 backups migrate automatically. Image OCR uses only stored image bytes, without uploading images or following file references.
 
 - Entries, including pinned entries, expire 60 days after their most recent capture or reuse. Copying or pasting an item from Jutilities, or copying the same content again in another app, renews its lifetime.
 - Maintenance runs at startup and hourly, and expiry is also enforced while accessing or modifying history. Deletion removes the entry, its stored formats and search data. SQLite secure deletion and checkpointing reduce leftover database content; they are not a guarantee against filesystem snapshots or external backups.

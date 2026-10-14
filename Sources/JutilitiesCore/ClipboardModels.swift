@@ -66,6 +66,9 @@ public struct ClipboardEntry: Identifiable, Sendable, Equatable {
     public let imageWidth: Int?
     public let imageHeight: Int?
     public let byteCount: Int
+    /// On-device image text. nil is pending; an empty string is a completed
+    /// recognition request that found no text. Original image formats stay intact.
+    public let recognizedText: String?
 }
 
 public enum ClipboardStoreError: Error, LocalizedError, Sendable {

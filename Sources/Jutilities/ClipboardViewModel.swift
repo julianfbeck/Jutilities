@@ -17,6 +17,8 @@ final class ClipboardViewModel: ObservableObject {
     @Published var selectedID: String?
     @Published var selectedImage: NSImage?
     @Published var selectedText: String?
+    @Published var isRecognizingImage = false
+    @Published var imageRecognitionError: String?
     @Published var statusMessage: String?
     @Published var errorMessage: String?
     @Published var isPaused = false
@@ -27,6 +29,8 @@ final class ClipboardViewModel: ObservableObject {
     var onSearch: (String, ClipboardKind?) -> Void = { _, _ in }
     var onCopy: (ClipboardEntry, Bool) -> Void = { _, _ in }
     var onAirDrop: (ClipboardEntry) -> Void = { _ in }
+    var onCopyRecognizedText: (ClipboardEntry) -> Void = { _ in }
+    var onRetryImageRecognition: () -> Void = {}
     var onPin: (ClipboardEntry) -> Void = { _ in }
     var onDelete: (ClipboardEntry) -> Void = { _ in }
     var onBackup: () -> Void = {}
@@ -84,6 +88,12 @@ final class ClipboardViewModel: ObservableObject {
     func airDropSelection() {
         guard let entry = selectedEntry, !isSharingViaAirDrop else { return }
         onAirDrop(entry)
+    }
+
+    func copyRecognizedText() {
+        guard let entry = selectedEntry, entry.kind == .image,
+              let text = entry.recognizedText, !text.isEmpty else { return }
+        onCopyRecognizedText(entry)
     }
 
     func deleteSelection() {
