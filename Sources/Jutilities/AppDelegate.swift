@@ -9,6 +9,7 @@ import JutilitiesCore
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let model = ClipboardViewModel()
+    private let menuState = UtilityMenuState()
     private let monitor = PasteboardMonitor()
     private let hotKey = GlobalHotKey()
     private let airDrop = ClipboardAirDrop()
@@ -138,14 +139,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func togglePopover() {
         guard let button = statusItem?.button else { return }
         if let popover, popover.isShown { popover.performClose(nil); return }
-        power.refreshSettings()
-        let view = UtilityMenuView(model: model, power: power, isPreview: isPreview,
+        if let front = NSWorkspace.shared.frontmostApplication, front.processIdentifier != getpid() {
+            previousApplication = front
+        }
+        if !power.hasPendingChanges { power.refreshSettings() }
+        let view = UtilityMenuView(model: model, power: power, menuState: menuState, isPreview: isPreview,
                                    openClipboard: { [weak self] in self?.showClipboard() },
                                    restoreBackup: { [weak self] in self?.restoreBackup() },
                                    openStorage: { [weak self] in
+                                       self?.dismissUtilityMenu()
                                        guard let url = self?.store?.databaseURL.deletingLastPathComponent() else { return }
                                        NSWorkspace.shared.open(url)
                                    },
+                                   dismiss: { [weak self] in self?.dismissUtilityMenu() },
                                    quit: { NSApp.terminate(nil) })
         let popup = NSPopover()
         popup.appearance = NSAppearance(named: .darkAqua)
@@ -171,6 +177,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         popover = popup
         popup.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popup.contentViewController?.view.window?.makeKey()
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func dismissUtilityMenu() {
+        popover?.performClose(nil)
+        previewMenuPanel?.orderOut(nil)
     }
 
     private func showClipboard() {
@@ -392,6 +405,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func exportBackup() {
+        dismissUtilityMenu()
         guard let store else { return }
         let save = NSSavePanel()
         save.title = "Back Up Clipboard History"
@@ -408,7 +422,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func restoreBackup() {
-        popover?.performClose(nil)
+        dismissUtilityMenu()
         guard store != nil else { return }
         let open = NSOpenPanel()
         open.title = "Restore Jutilities Clipboard Backup"
