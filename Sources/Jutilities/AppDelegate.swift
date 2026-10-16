@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem?
     private var panel: NSPanel?
     private var previewMenuPanel: NSPanel?
+    private var keyboardWindow: NSWindow?
     private var popover: NSPopover?
     private var menuResize: DispatchWorkItem?
     private var maintenanceTimer: Timer?
@@ -27,7 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var pasteGeneration = 0
     private var subscriptions = Set<AnyCancellable>()
     private let isPreview = CommandLine.arguments.contains("--preview") || CommandLine.arguments.contains("--preview-menu")
+        || CommandLine.arguments.contains("--preview-keyboard")
     private lazy var power = PowerManager(isPreview: isPreview)
+    private lazy var keyboard = KeyboardConfigurationManager(isPreview: isPreview)
     private var backupURL: URL!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -74,7 +77,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
             // The first launch shows the empty panel and documents the shortcut.
             if isPreview || !UserDefaults.standard.bool(forKey: "hasLaunched") {
-                if CommandLine.arguments.contains("--preview-menu") { togglePopover() }
+                if CommandLine.arguments.contains("--preview-keyboard") { showKeyboardSettings() }
+                else if CommandLine.arguments.contains("--preview-menu") { togglePopover() }
                 else { showClipboard() }
                 if !isPreview { UserDefaults.standard.set(true, forKey: "hasLaunched") }
             }
@@ -148,12 +152,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         item.button?.imagePosition = .imageOnly
         item.button?.target = self
         item.button?.action = #selector(togglePopover)
-        item.button?.toolTip = "Jutilities · Clipboard and power controls"
+        item.button?.toolTip = "Jutilities · Clipboard, power and keyboard controls"
         statusItem = item
         power.$isKeepingAwake.sink { [weak self] active in
             guard let button = self?.statusItem?.button else { return }
             button.image = BrandIcon.menuBarImage(keepingAwake: active)
-            let description = "Jutilities · Clipboard and power controls · Keep awake \(active ? "on" : "off")"
+            let description = "Jutilities · Clipboard, power and keyboard controls · Keep awake \(active ? "on" : "off")"
             button.toolTip = description
             button.setAccessibilityLabel(description)
         }.store(in: &subscriptions)
@@ -166,11 +170,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             previousApplication = front
         }
         if !power.hasPendingChanges { power.refreshSettings() }
+        keyboard.refresh()
         let popup = NSPopover()
         let screen = button.window?.screen ?? NSScreen.main
         let maximumHeight = min(JutilitiesLayout.menuMaximumHeight,
                                 max(0, (screen?.visibleFrame.height ?? JutilitiesLayout.menuMaximumHeight) - 24))
-        let view = UtilityMenuView(model: model, power: power, menuState: menuState, isPreview: isPreview,
+        let view = UtilityMenuView(model: model, power: power, menuState: menuState, keyboard: keyboard,
+                                   automaticPasteStatus: isPreview ? PastePermissionStatus(accessibilityTrusted: true, canPostEvents: true) : .current(),
+                                   isPreview: isPreview,
                                    maximumHeight: maximumHeight,
                                    resize: { [weak self, weak popup] size in
                                        guard let popup else { return }
@@ -182,6 +189,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                                        self?.dismissUtilityMenu()
                                        guard let url = self?.store?.databaseURL.deletingLastPathComponent() else { return }
                                        NSWorkspace.shared.open(url)
+                                   },
+                                   openKeyboard: { [weak self] in self?.showKeyboardSettings() },
+                                   configureAutomaticPaste: { [weak self] in
+                                       self?.dismissUtilityMenu()
+                                       self?.showAccessibilityHelp()
                                    },
                                    dismiss: { [weak self] in self?.dismissUtilityMenu() },
                                    quit: { NSApp.terminate(nil) })
@@ -272,6 +284,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    private func showKeyboardSettings() {
+        dismissUtilityMenu()
+        keyboard.refresh()
+        if keyboardWindow == nil {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 620),
+                                  styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+            window.title = "Jutilities — Keyboard configurations"
+            window.appearance = NSAppearance(named: .darkAqua)
+            window.contentViewController = NSHostingController(rootView: KeyboardSettingsView(manager: keyboard))
+            window.isReleasedWhenClosed = false
+            window.minSize = NSSize(width: 520, height: 480)
+            window.center()
+            keyboardWindow = window
+        }
+        keyboardWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     func windowDidResignKey(_ notification: Notification) {
         // Save panels and native confirmation dialogs temporarily take focus.
         // Keep the history visible so those operations return to a usable panel.
@@ -356,30 +386,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     self.mutate { try $0.recordCopy(id: entry.id) }
                     self.model.statusMessage = "Copied to clipboard"
                     guard autoPaste else { return }
-                    guard AXIsProcessTrusted() else {
-                        self.model.statusMessage = "Copied. Press ⌘V to paste, or enable Jutilities in Accessibility for automatic paste."
-                        self.showAccessibilityHelp()
-                        return
-                    }
                     let target = self.previousApplication
-                    self.panel?.orderOut(nil)
                     guard let target, !target.isTerminated else {
                         self.model.statusMessage = "Copied. Switch to the destination app and press ⌘V."
                         return
                     }
-                    target.activate(options: [])
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
-                        // A newer copy, another restore, or changed focus cancels this paste.
-                        guard let self, self.pasteGeneration == generation,
-                              board.changeCount == clipboardGeneration,
-                              NSWorkspace.shared.frontmostApplication?.processIdentifier == target.processIdentifier else { return }
-                        let source = CGEventSource(stateID: .combinedSessionState)
-                        let down = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true)
-                        let up = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false)
-                        down?.flags = .maskCommand
-                        up?.flags = .maskCommand
-                        down?.post(tap: .cghidEventTap)
-                        up?.post(tap: .cghidEventTap)
+                    guard PastePermissionStatus.current().allowsAutomaticPaste else {
+                        self.model.statusMessage = "Copied. Automatic paste needs permission for this installed version of Jutilities."
+                        self.showAccessibilityHelp()
+                        return
+                    }
+                    self.panel?.orderOut(nil)
+                    let outcome = await PasteAutomation().paste(
+                        into: target.processIdentifier,
+                        clipboardChangeCount: clipboardGeneration,
+                        operationIsCurrent: { [weak self] in self?.pasteGeneration == generation }
+                    )
+                    guard self.pasteGeneration == generation else { return }
+                    switch outcome {
+                    case .pasted:
+                        self.model.statusMessage = "Paste sent to \(target.localizedName ?? "the previous app")"
+                    case .permissionRequired:
+                        self.model.statusMessage = "Copied. Automatic paste needs permission for this installed version of Jutilities."
+                        self.showAccessibilityHelp()
+                    case .targetUnavailable, .activationFailed, .focusNotRestored:
+                        self.model.statusMessage = "Copied. Could not focus the destination app. Switch to it and press ⌘V."
+                    case .focusChanged:
+                        self.model.statusMessage = "Copied. Paste stopped because the active app changed. Press ⌘V in the destination app."
+                    case .eventCreationFailed:
+                        self.model.statusMessage = "Copied. Could not send the paste shortcut. Press ⌘V in the destination app."
+                    case .cancelled:
+                        break
                     }
                 }
             } catch { Task { @MainActor [weak self] in self?.model.errorMessage = error.localizedDescription } }
@@ -413,16 +450,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func showAccessibilityHelp() {
+        guard !isPreview else {
+            model.statusMessage = "Preview mode: automatic paste permissions are unchanged."
+            return
+        }
+        guard !PastePermissionStatus.current().allowsAutomaticPaste else {
+            model.statusMessage = "Automatic paste is enabled. Press Return on an item to try again."
+            return
+        }
         let alert = NSAlert()
         alert.messageText = "Set up Jutilities automatic paste"
-        alert.informativeText = "Jutilities needs Accessibility permission to paste selected history into your previous app. Choose Enable, then allow Jutilities in macOS Accessibility settings. You can also use copy-only mode and paste yourself with ⌘V."
+        alert.informativeText = "macOS has not allowed this installed version of Jutilities to send paste keystrokes. Enable Jutilities in Accessibility. If its switch is already on, turn it off and on again; if needed, remove its old entry and add Jutilities from Applications. Then return here and press Return to try again. You can also copy and paste yourself with ⌘V."
         alert.addButton(withTitle: "Enable Automatic Paste")
         alert.addButton(withTitle: "Use Copy-Only")
         NSApp.activate(ignoringOtherApps: true)
         if alert.runModal() == .alertFirstButtonReturn,
            let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
             let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-            _ = AXIsProcessTrustedWithOptions(options)
+            let accessibilityTrusted = AXIsProcessTrustedWithOptions(options)
+            if accessibilityTrusted, !CGPreflightPostEventAccess() {
+                _ = CGRequestPostEventAccess()
+            }
             NSWorkspace.shared.open(url)
         }
     }

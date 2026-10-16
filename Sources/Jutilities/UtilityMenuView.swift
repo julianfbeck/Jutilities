@@ -6,6 +6,7 @@ enum UtilityMenuSection: String, CaseIterable, Identifiable {
     case clipboard = "Clipboard"
     case keepAwake = "Keep awake"
     case sleepAndLock = "Sleep & lock"
+    case keyboard = "Keyboard"
 
     var id: Self { self }
 }
@@ -22,12 +23,16 @@ struct UtilityMenuView: View {
     @ObservedObject var model: ClipboardViewModel
     @ObservedObject var power: PowerManager
     @ObservedObject var menuState: UtilityMenuState
+    @ObservedObject var keyboard: KeyboardConfigurationManager
+    let automaticPasteStatus: PastePermissionStatus
     let isPreview: Bool
     let maximumHeight: CGFloat
     let resize: (CGSize) -> Void
     let openClipboard: () -> Void
     let restoreBackup: () -> Void
     let openStorage: () -> Void
+    let openKeyboard: () -> Void
+    let configureAutomaticPaste: () -> Void
     let dismiss: () -> Void
     let quit: () -> Void
     @State private var loginError: String?
@@ -73,7 +78,7 @@ struct UtilityMenuView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .help("Switch sections with ⌘1, ⌘2 or ⌘3")
+            .help("Switch sections with ⌘1, ⌘2, ⌘3 or ⌘4")
             .padding(.horizontal, 12)
             .padding(.bottom, 10)
             separator
@@ -95,6 +100,7 @@ struct UtilityMenuView: View {
                             .padding(10)
                     }
                 case .sleepAndLock: PowerSettingsView(manager: power)
+                case .keyboard: keyboardSection
                 }
             }
             .padding(12)
@@ -135,7 +141,7 @@ struct UtilityMenuView: View {
                 Toggle("Open Jutilities at login", isOn: Binding(
                     get: { launchesAtLogin }, set: setLaunchesAtLogin))
                 Divider()
-                Text("Jutilities 0.1.0")
+                Text("Jutilities \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.0")")
             } label: {
                 Image(systemName: "gearshape")
                     .font(.system(size: 13))
@@ -200,6 +206,19 @@ struct UtilityMenuView: View {
                 }
             }
 
+            card {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(automaticPasteStatus.allowsAutomaticPaste ? "Automatic paste ready" : "Automatic paste needs access",
+                          systemImage: automaticPasteStatus.allowsAutomaticPaste ? "checkmark.shield" : "exclamationmark.shield")
+                        .font(.system(size: 11))
+                        .foregroundStyle(JutilitiesTheme.muted)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 10)
+                    UtilityMenuAction(title: "Review automatic paste access…", symbol: "hand.raised",
+                                      action: configureAutomaticPaste)
+                }
+            }
+
             Label("Sensitive copies are skipped when detected.", systemImage: "lock.shield")
                 .font(.system(size: 11))
                 .foregroundStyle(JutilitiesTheme.muted)
@@ -214,13 +233,37 @@ struct UtilityMenuView: View {
         }
     }
 
+    private var keyboardSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            card {
+                VStack(alignment: .leading, spacing: 7) {
+                    Label("Modifier keys", systemImage: "keyboard")
+                        .font(.system(size: 12, weight: .medium))
+                    Text(keyboard.selectedKeyboard?.name ?? "Select a connected keyboard")
+                        .font(.system(size: 12))
+                    Text(keyboard.currentModifierSummary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(JutilitiesTheme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(12)
+            }
+            UtilityMenuAction(title: "Manage keyboard configurations…", symbol: "slider.horizontal.3",
+                              action: openKeyboard)
+            Text("Save your modifier keys, then apply a saved configuration to another connected keyboard.")
+                .font(.system(size: 11))
+                .foregroundStyle(JutilitiesTheme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     private var footer: some View {
         HStack(spacing: 6) {
             if power.isKeepingAwake {
                 Circle().fill(.green).frame(width: 5, height: 5).accessibilityHidden(true)
                 Text("Keeping Mac awake")
             } else {
-                Text("⌘1–3 switch sections")
+                Text("⌘1–4 switch sections")
             }
             Spacer()
             Button("Quit", action: quit)
@@ -273,7 +316,7 @@ struct UtilityMenuView: View {
             .subtracting([.capsLock, .numericPad, .function])
         if modifiers.isEmpty, event.keyCode == 53 { dismiss(); return true }
         guard modifiers == .command else { return false }
-        let sections: [String: UtilityMenuSection] = ["1": .clipboard, "2": .keepAwake, "3": .sleepAndLock]
+        let sections: [String: UtilityMenuSection] = ["1": .clipboard, "2": .keepAwake, "3": .sleepAndLock, "4": .keyboard]
         guard let key = event.charactersIgnoringModifiers, let section = sections[key] else { return false }
         menuState.section = section
         return true

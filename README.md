@@ -1,6 +1,6 @@
 # Jutilities
 
-A native macOS clipboard manager and keep-awake utility, built with SwiftUI and AppKit. The searchable clipboard panel takes inspiration from Raycast, with text and image previews, type filters, pinned items and keyboard actions. The menu bar holds clipboard capture, power settings and launch-at-login controls.
+A native macOS clipboard manager and keep-awake utility, built with SwiftUI and AppKit. The searchable clipboard panel takes inspiration from Raycast, with text and image previews, type filters, pinned items and keyboard actions. The menu bar holds clipboard capture, power settings, keyboard modifier profiles and launch-at-login controls.
 
 ![Jutilities clipboard panel with preview data](docs/clipboard.png)
 
@@ -38,7 +38,7 @@ open -n "$HOME/Applications/Jutilities.app" --args --preview
 
 Preview mode uses sample entries in a separate temporary database. Quit an existing instance first if its global shortcut or menu item would make the preview confusing.
 
-Use `--preview-menu` instead of `--preview` to inspect the menu-bar controls in the same isolated mode.
+Use `--preview-menu` instead of `--preview` to inspect the menu-bar controls, or `--preview-keyboard` to inspect the keyboard configuration window, in the same isolated mode.
 
 ## Use
 
@@ -55,7 +55,7 @@ Use `--preview-menu` instead of `--preview` to inspect the menu-bar controls in 
 
 Type to search. The compact, resizable clipboard panel opens at 760 × 500 points. Drag its top edge to move it; reopening history keeps that position for the current session. If another app uses ⌥V, open history from the menu bar instead.
 
-The JU menu has three sections: **Clipboard**, **Keep awake**, and **Sleep & lock**. Switch with the segmented control or **⌘1**, **⌘2**, and **⌘3** while the menu is open. The menu resizes to fit each section; longer content scrolls within the available screen space, with navigation and Apply kept visible. **Open clipboard history** stays visible above the sections, and **Escape** closes the menu. Clipboard shows capture and backup actions directly. Keep awake holds temporary session controls; Sleep & lock holds saved macOS settings behind **Apply changes**. The selected section, keep-awake choices and unapplied settings survive switching sections and reopening the menu during the current app session. **Refresh** reads macOS settings and discards unapplied settings. The header's gear holds launch-at-login; Quit stays in the footer.
+The JU menu has four sections: **Clipboard**, **Keep awake**, **Sleep & lock**, and **Keyboard**. Switch with the segmented control or **⌘1** through **⌘4** while the menu is open. The menu resizes to fit each section; longer content scrolls within the available screen space, with navigation and Apply kept visible. **Open clipboard history** stays visible above the sections, and **Escape** closes the menu. Clipboard shows capture and backup actions directly. Keep awake holds temporary session controls; Sleep & lock holds saved macOS settings behind **Apply changes**. The selected section, keep-awake choices and unapplied settings survive switching sections and reopening the menu during the current app session. **Refresh** reads macOS settings and discards unapplied settings. The header's gear holds launch-at-login; Quit stays in the footer.
 
 Both panels use a translucent native backdrop with a dark tint to keep the controls readable. macOS **Reduce Transparency** switches them to a solid background.
 
@@ -67,7 +67,17 @@ Choose **Actions → AirDrop…**, or right-click an item and choose **AirDrop�
 
 The app and menu-bar icons use the same clean J/U monogram. The compact monochrome menu-bar mark follows the macOS appearance. A small dot indicates an active keep-awake session; the tooltip also reports that state.
 
-Automatic paste needs **System Settings → Privacy & Security → Accessibility → Jutilities**. Without this optional permission, Jutilities copies the item and you can paste with ⌘V. A locally rebuilt app may need its Accessibility grant renewed.
+Automatic paste needs **System Settings → Privacy & Security → Accessibility → Jutilities**. The Clipboard section reports whether the running app has both Accessibility and event-post access; **Review automatic paste access…** opens its setup dialog. Without this optional permission, Jutilities copies the item and you can paste with ⌘V. It checks access again before sending the shortcut and waits for the destination app to regain focus. Changing apps or copying something else cancels a pending paste.
+
+An ad-hoc rebuild changes the app’s signing identity, so an enabled Accessibility switch can still refer to an older build. Turn it off and on again, or remove the old entry and add the current Jutilities from Applications. Use the same Apple Development or Developer ID signing certificate for successive local builds to retain a stable signing identity. The default build remains ad-hoc so a fresh clone and CI need no private signing credentials. Before installing, optionally sign with the certificate fingerprint you chose from `security find-identity -v -p codesigning`:
+
+```sh
+codesign --force --sign "$JUTILITIES_SIGNING_IDENTITY" --options runtime --timestamp=none \
+  build/DerivedData/Build/Products/Release/Jutilities.app
+codesign --verify --deep --strict build/DerivedData/Build/Products/Release/Jutilities.app
+```
+
+The first switch from ad-hoc signing to a certificate also requires a new Accessibility grant. The read-only command `Jutilities.app/Contents/MacOS/Jutilities --automation-status` reports access for that executable without opening history or sending keystrokes.
 
 On first launch, a setup popup offers **Enable Automatic Paste** and **Use Copy-Only**. Enable asks macOS for permission and opens the Accessibility pane.
 
@@ -80,6 +90,10 @@ open "$HOME/Applications/Jutilities.app" --args --enable-login
 If Jutilities is already running, quit it before launching with this argument. macOS may require approval in **System Settings → General → Login Items**.
 
 Check registration without opening a window with `Jutilities.app/Contents/MacOS/Jutilities --login-status`.
+
+## Keyboard modifier profiles
+
+Open **JU → Keyboard → Manage keyboard configurations…** to inspect a connected keyboard’s current modifier mappings. Save the current configuration with a name, select another keyboard, choose the saved profile, then explicitly apply it. This transfers modifier mappings only; keyboard layout and key-repeat settings stay untouched. Unrelated key remaps are preserved. A revert action restores the previous configuration after an apply. Merely opening the window or saving a profile does not change a keyboard.
 
 ## Clipboard storage and privacy
 

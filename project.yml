@@ -35,8 +35,8 @@ targets:
         CFBundleDisplayName: Jutilities
         CFBundleName: Jutilities
         CFBundleIconFile: AppIcon
-        CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: "0.2.0"
+        CFBundleVersion: "2"
         LSUIElement: true
         NSPrincipalClass: NSApplication
         NSAppleEventsUsageDescription: Jutilities asks macOS to apply sleep settings only when you choose Apply.
@@ -69,6 +69,7 @@ targets:
       - Sources/Jutilities/ClipboardAirDrop.swift
       - Sources/Jutilities/ImageTextRecognition.swift
       - Sources/Jutilities/ImageTextIndexer.swift
+      - Sources/Jutilities/PasteAutomation.swift
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
