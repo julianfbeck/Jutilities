@@ -35,6 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.applicationIconImage = BrandIcon.image(size: 256)
+        _ = currentPastePermissionStatus()
         model.globalShortcutDescription = "⌥V"
         wireCallbacks()
         installMenuBar()
@@ -82,7 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 else { showClipboard() }
                 if !isPreview { UserDefaults.standard.set(true, forKey: "hasLaunched") }
             }
-            if !isPreview, !AXIsProcessTrusted(),
+            if !isPreview, !currentPastePermissionStatus().allowsAutomaticPaste,
                !UserDefaults.standard.bool(forKey: "hasOfferedAutomaticPaste") {
                 UserDefaults.standard.set(true, forKey: "hasOfferedAutomaticPaste")
                 DispatchQueue.main.async { [weak self] in self?.showAccessibilityHelp() }
@@ -91,6 +92,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             model.errorMessage = error.localizedDescription
             showClipboard()
         }
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        _ = currentPastePermissionStatus()
+    }
+
+    private func currentPastePermissionStatus() -> PastePermissionStatus {
+        if isPreview { return PastePermissionStatus(accessibilityTrusted: true, canPostEvents: true) }
+        let status = PastePermissionStatus.current()
+        PastePermissionDiagnostics.recordGUI(status: status)
+        return status
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -176,7 +188,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let maximumHeight = min(JutilitiesLayout.menuMaximumHeight,
                                 max(0, (screen?.visibleFrame.height ?? JutilitiesLayout.menuMaximumHeight) - 24))
         let view = UtilityMenuView(model: model, power: power, menuState: menuState, keyboard: keyboard,
-                                   automaticPasteStatus: isPreview ? PastePermissionStatus(accessibilityTrusted: true, canPostEvents: true) : .current(),
+                                   automaticPasteStatus: currentPastePermissionStatus(),
                                    isPreview: isPreview,
                                    maximumHeight: maximumHeight,
                                    resize: { [weak self, weak popup] size in
@@ -391,7 +403,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                         self.model.statusMessage = "Copied. Switch to the destination app and press ⌘V."
                         return
                     }
-                    guard PastePermissionStatus.current().allowsAutomaticPaste else {
+                    guard self.currentPastePermissionStatus().allowsAutomaticPaste else {
                         self.model.statusMessage = "Copied. Automatic paste needs permission for this installed version of Jutilities."
                         self.showAccessibilityHelp()
                         return
@@ -454,13 +466,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             model.statusMessage = "Preview mode: automatic paste permissions are unchanged."
             return
         }
-        guard !PastePermissionStatus.current().allowsAutomaticPaste else {
+        let status = currentPastePermissionStatus()
+        guard !status.allowsAutomaticPaste else {
             model.statusMessage = "Automatic paste is enabled. Press Return on an item to try again."
             return
         }
         let alert = NSAlert()
         alert.messageText = "Set up Jutilities automatic paste"
-        alert.informativeText = "macOS has not allowed this installed version of Jutilities to send paste keystrokes. Enable Jutilities in Accessibility. If its switch is already on, turn it off and on again; if needed, remove its old entry and add Jutilities from Applications. Then return here and press Return to try again. You can also copy and paste yourself with ⌘V."
+        alert.informativeText = "macOS has not allowed this installed version of Jutilities to send paste keystrokes. Enable Jutilities in Accessibility. If its switch is already on, turn it off and on again; if needed, remove its old entry and add Jutilities from Applications. Then return here and press Return to try again. You can also copy and paste yourself with ⌘V.\n\nAccessibility: \(status.accessibilityTrusted ? "Allowed" : "Not allowed")\nPaste events: \(status.canPostEvents ? "Allowed" : "Not allowed")"
         alert.addButton(withTitle: "Enable Automatic Paste")
         alert.addButton(withTitle: "Use Copy-Only")
         NSApp.activate(ignoringOtherApps: true)
@@ -471,6 +484,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if accessibilityTrusted, !CGPreflightPostEventAccess() {
                 _ = CGRequestPostEventAccess()
             }
+            _ = currentPastePermissionStatus()
             NSWorkspace.shared.open(url)
         }
     }

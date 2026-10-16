@@ -141,7 +141,7 @@ struct UtilityMenuView: View {
                 Toggle("Open Jutilities at login", isOn: Binding(
                     get: { launchesAtLogin }, set: setLaunchesAtLogin))
                 Divider()
-                Text("Jutilities \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.0")")
+                Text("Jutilities \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.1")")
             } label: {
                 Image(systemName: "gearshape")
                     .font(.system(size: 13))
@@ -214,6 +214,12 @@ struct UtilityMenuView: View {
                         .foregroundStyle(JutilitiesTheme.muted)
                         .padding(.horizontal, 12)
                         .padding(.top, 10)
+                    if !automaticPasteStatus.allowsAutomaticPaste {
+                        Text("Accessibility: \(automaticPasteStatus.accessibilityTrusted ? "Allowed" : "Not allowed") · Paste events: \(automaticPasteStatus.canPostEvents ? "Allowed" : "Not allowed")")
+                            .font(.system(size: 10))
+                            .foregroundStyle(JutilitiesTheme.muted)
+                            .padding(.horizontal, 12)
+                    }
                     UtilityMenuAction(title: "Review automatic paste access…", symbol: "hand.raised",
                                       action: configureAutomaticPaste)
                 }

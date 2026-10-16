@@ -5,18 +5,11 @@ import ServiceManagement
 struct JutilitiesApp {
     @MainActor static func main() {
         if CommandLine.arguments.contains("--version") {
-            print("Jutilities \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.0")")
+            print("Jutilities \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.1")")
             return
         }
         if CommandLine.arguments.contains("--automation-status") {
-            let status = PastePermissionStatus.current()
-            let report: [String: Any] = [
-                "accessibilityTrusted": status.accessibilityTrusted,
-                "canPostEvents": status.canPostEvents,
-                "automaticPasteAvailable": status.allowsAutomaticPaste
-            ]
-            if let data = try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]),
-               let text = String(data: data, encoding: .utf8) { print(text) }
+            if let text = PastePermissionDiagnostics.encodedCommandLineReport() { print(text) }
             return
         }
         if CommandLine.arguments.contains("--login-status") {

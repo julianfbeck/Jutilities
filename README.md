@@ -77,7 +77,9 @@ codesign --force --sign "$JUTILITIES_SIGNING_IDENTITY" --options runtime --times
 codesign --verify --deep --strict build/DerivedData/Build/Products/Release/Jutilities.app
 ```
 
-The first switch from ad-hoc signing to a certificate also requires a new Accessibility grant. The read-only command `Jutilities.app/Contents/MacOS/Jutilities --automation-status` reports access for that process without opening history or sending keystrokes. A command launched through SSH or a terminal can have different permissions from the desktop app; use **JU → Clipboard → Review automatic paste access…** to check the running desktop app.
+The first switch from ad-hoc signing to a certificate also requires a new Accessibility grant. The read-only command `Jutilities.app/Contents/MacOS/Jutilities --automation-status` separates the current command-line process from the latest desktop-app permission report. It only returns desktop status when that recent report matches the running app and current build. These private diagnostics contain permission and app identity metadata, without clipboard content. A command launched through SSH or a terminal can have different permissions from the desktop app; **JU → Clipboard → Review automatic paste access…** checks the desktop app directly.
+
+If removing and re-adding the app leaves a stale grant, quit Jutilities, run `tccutil reset Accessibility sh.juli.Jutilities`, and reopen it. This revokes only Jutilities’ Accessibility approval; choose **Enable Automatic Paste** to grant access again. The popup shows the desktop app’s current Accessibility and paste-event status.
 
 On first launch, a setup popup offers **Enable Automatic Paste** and **Use Copy-Only**. Enable asks macOS for permission and opens the Accessibility pane.
 

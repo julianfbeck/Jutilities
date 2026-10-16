@@ -35,8 +35,8 @@ targets:
         CFBundleDisplayName: Jutilities
         CFBundleName: Jutilities
         CFBundleIconFile: AppIcon
-        CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "2"
+        CFBundleShortVersionString: "0.2.1"
+        CFBundleVersion: "3"
         LSUIElement: true
         NSPrincipalClass: NSApplication
         NSAppleEventsUsageDescription: Jutilities asks macOS to apply sleep settings only when you choose Apply.
