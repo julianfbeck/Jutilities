@@ -77,7 +77,7 @@ codesign --force --sign "$JUTILITIES_SIGNING_IDENTITY" --options runtime --times
 codesign --verify --deep --strict build/DerivedData/Build/Products/Release/Jutilities.app
 ```
 
-The first switch from ad-hoc signing to a certificate also requires a new Accessibility grant. The read-only command `Jutilities.app/Contents/MacOS/Jutilities --automation-status` reports access for that executable without opening history or sending keystrokes.
+The first switch from ad-hoc signing to a certificate also requires a new Accessibility grant. The read-only command `Jutilities.app/Contents/MacOS/Jutilities --automation-status` reports access for that process without opening history or sending keystrokes. A command launched through SSH or a terminal can have different permissions from the desktop app; use **JU → Clipboard → Review automatic paste access…** to check the running desktop app.
 
 On first launch, a setup popup offers **Enable Automatic Paste** and **Use Copy-Only**. Enable asks macOS for permission and opens the Accessibility pane.
 
